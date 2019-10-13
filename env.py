@@ -59,6 +59,7 @@ env.reset()
 for i_episode in range(4):
     observation = env.reset()
     for t in range(4):
+    	# env.render() opens window of MontezumaRevenge game
         env.render()
         action = env.action_space
         observation, reward, done, info = env.step(8)
