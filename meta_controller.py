@@ -2,7 +2,7 @@ import tensorflow as tf
 
 class MetaController:
 
-    def __init__(self, sess, hparams, epsilon = 1):
+    def __init__(self, sess, hparams):
         self.sess = sess
         self.learning_rate = hparams["learning_rate"]
         self.epsilon = hparams["epsilon"]
@@ -43,7 +43,7 @@ class MetaController:
         self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
     def update(self, observations, goals):
-        self.sess.run(self.trian_op, feed_dict = {self.obs_ph: observations, self.goals: goals})
+        self.sess.run(self.train_op, feed_dict = {self.obs_ph: observations, self.goals: goals})
 
     def get_goal(self, observations):
         q_t_values = self.sess.run(self.q_t_values, feed_dict = {self.obs_ph: observations})
