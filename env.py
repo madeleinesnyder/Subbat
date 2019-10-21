@@ -3,44 +3,63 @@ import random
 from replay_memory import ReplayMemory
 from meta_controller import MetaController
 from controller import Controller
+from utils import *
 import time
 
 random.seed(42)
 
+learning_rate = 2.5e-4
+num_episodes = 10000
+discount = 0.99
+batch_size = 256
+
+# Goals = [] #TODO
+
+env = gym.make('MontezumaRevenge-v0')
+sess = tf.Session()
+
 d1 = ReplayMemory()
 d2 = ReplayMemory()
-#
-# Goals = [] #TODO
-# meta_controller = MetaController(0.0025)
-# controller = Controller(0.00025)
 
-# num_episodes = 10000
-# env = gym.make('MontezumaRevenge-v0')
-# for i in range(num_episodes):
-#     #observation space is 210x160x3
-#     observation = env.reset()
-#     goal = meta_controller.epsGreedy(observation, Goals)
-#     done = False
-#     while not done:
-#         F = 0
-#         initial_observation = observation
-#         while not (done or observation == goal):
-#             #action space is discrete on set {0,1,...,17}
-#             Actions = env.action_space
-#             action = controller.epsGreedy([observation, goal], Actions)
-#             next_observation, f, done, info = env.step(action)
-#             r = 1 if next_observation == goal else 0
-#             d1.store([observation, goal], action, r, [next_observation, goal])
-#             controller.update(d1)
-#             meta_controller.update(d2)
-#             F += f
-#             observation = next_observation
-#         d2.store(initial_observation, goal, F, next_observation)
-#         if not done:
-#             goal = meta_controller.epsGreedy(observation, Goals)
-#     meta_controller.anneal()
-#     controller.anneal()
-# env.close()
+meta_controller_input_shape = env.observation_space.shape
+controller_input_shape = env.observation_space.shape
+controller_input_shape[0] = controller_input_shape[0] * 2
+
+meta_controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "goal_dim": len(Goals), "input_shape": meta_controller_input_shape}
+controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "action_dim": env.action_space.n, "input_shape": controller_input_shape}
+
+meta_controller = MetaController(sess, meta_controller_hparams)
+controller = Controller(sess, controller_hparams)
+
+for i in range(num_episodes):
+    observation = env.reset()
+    goal = meta_controller.epsGreedy(observation, Goals)
+    done = False
+        while not done:
+            F = 0
+            initial_observation = observation
+            while not (done or observation == goal):
+                #action space is discrete on set {0,1,...,17}
+                action = controller.epsGreedy([observation, goal], env.action_space)
+                next_observation, f, done, info = env.step(action)
+                r = intrinsic_reward(next_observation, goal)
+
+                d1.store([initial_observation, goal], action, r, [next_observation, goal])
+                controller_batch = d1.sample(batch_size)
+                c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
+                controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
+
+                meta_controller_batch = d2.sample(batch_size)
+                m_targets = meta_controller_targets(meta_controller_batch[:, 2], meta_controller_batch[:, 3], meta_controller, discount)
+                meta_controller.update(controller_batch[:, 0], controller_batch[:, 1], m_targets)
+                F += f
+                observation = next_observation
+            d2.store(initial_observation, goal, F, next_observation)
+            if not done:
+                goal = meta_controller.epsGreedy(Goals, obervation)
+        meta_controller.anneal()
+        controller.anneal()
+env.close()
 
 
 # 0: do nothing
