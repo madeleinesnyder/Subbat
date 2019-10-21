@@ -50,17 +50,16 @@ for i in range(num_episodes):
                 controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
 
                 meta_controller_batch = d2.sample(batch_size)
-                meta_controller.update()
-
-#             meta_controller.update(d2)
-#             F += f
-#             observation = next_observation
-#         d2.store(initial_observation, goal, F, next_observation)
-#         if not done:
-#             goal = meta_controller.epsGreedy(observation, Goals)
-#     meta_controller.anneal()
-#     controller.anneal()
-# env.close()
+                m_targets = meta_controller_targets(meta_controller_batch[:, 2], meta_controller_batch[:, 3], meta_controller, discount)
+                meta_controller.update(controller_batch[:, 0], controller_batch[:, 1], m_targets)
+                F += f
+                observation = next_observation
+            d2.store(initial_observation, goal, F, next_observation)
+            if not done:
+                goal = meta_controller.epsGreedy(Goals, obervation)
+        meta_controller.anneal()
+        controller.anneal()
+env.close()
 
 
 # 0: do nothing

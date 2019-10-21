@@ -7,7 +7,6 @@ class MetaController:
         self.learning_rate = hparams["learning_rate"]
         self.epsilon = hparams["epsilon"]
         self.goal_dim = hparams['goal_dim']
-        self.ob_dim = hparams['ob_dim']
         self.input_shape = hparams['input_shape']
         self.define_placeholders()
         self.build_graph(self.obs_ph, self.goal_dim)
@@ -21,12 +20,12 @@ class MetaController:
         if self.epsilon > 0.1:
             self.epsilon -= (1 - 0.1)/50000
 
-    def epsGreedy(self, goals, observations):
+    def epsGreedy(self, goals, observation):
         if random.randint(0,1) <= self.eps:
             indx = random.randint(0, len(goals) - 1)
             return goals[indx]
         else:
-            return self.get_goal(observations)
+            return self.get_goal(observation)
 
     def build_graph(self, input_placeholder, output_size):
         #input should be observations (images)
@@ -42,12 +41,22 @@ class MetaController:
         self.loss = tf.losses.mean_squared_error(self.targets, q_predictions)
         self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
-    def update(self, observations, goals):
-        self.sess.run(self.train_op, feed_dict = {self.obs_ph: observations, self.goals: goals})
+    def update(self, observations, goals, targets):
+        self.sess.run(self.train_op, feed_dict = {self.obs_ph: observations, self.goals: goals, self.targets: targets})
 
     def get_goal(self, observations):
-        q_t_values = self.sess.run(self.q_t_values, feed_dict = {self.obs_ph: observations})
-        return tf.math.argmax(q_t_values, axis = 1)
+        goals = tf.math.argmax(self.q_t_values, axis = 1)
+        return self.sess.run(goals, feed_dict = {self.obs_ph: observations})
+
+    def get_q_vals(self, x):
+        return self.sess.run(self.q_t_values, feed_dict = {self.obs_ph: x})
+
+
+
+
+
+
+
 
 
 

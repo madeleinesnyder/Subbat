@@ -11,5 +11,8 @@ def controller_targets(rewards, next_observations, controller, discount):
 	targets = rewards + discount * np.max(q_values, axis = 1)
 	return targets
 
-
+def meta_controller_targets(rewards, next_observations, meta_controller, discount):
+	q_values = meta_controller.get_q_vals(next_observations)
+	targets = rewards + discount * np.max(q_values, axis = 1)
+	return targets
 
