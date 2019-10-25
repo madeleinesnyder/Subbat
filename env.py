@@ -10,6 +10,8 @@ random.seed(42)
 
 learning_rate = 2.5e-4
 num_episodes = 10000
+# adjust later
+num_pre_training_episodes = 5000
 discount = 0.99
 batch_size = 256
 
@@ -31,6 +33,33 @@ controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "action_dim"
 meta_controller = MetaController(sess, meta_controller_hparams)
 controller = Controller(sess, controller_hparams)
 
+# pretraining step
+for i in range(num_pre_training_episodes):
+    observation = env.reset()
+    goal = random_goal(Goals)
+    done = False
+    while not done:
+        F = 0
+        initial_observation = observation
+        while not (done or observation == goal):
+            #action space is discrete on set {0,1,...,17}
+            action = controller.epsGreedy([observation, goal], env.action_space)
+            next_observation, f, done, info = env.step(action)
+            r = intrinsic_reward(next_observation, goal)
+
+            d1.store([initial_observation, goal], action, r, [next_observation, goal])
+            controller_batch = d1.sample(batch_size)
+            c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
+            controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
+
+            F += f
+            observation = next_observation
+        d2.store(initial_observation, goal, F, next_observation)
+        if not done:
+            goal = random_goal(Goals)
+    controller.anneal()
+
+# main h-DQN algorithm
 for i in range(num_episodes):
     observation = env.reset()
     goal = meta_controller.epsGreedy(observation, Goals)
