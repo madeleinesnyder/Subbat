@@ -4,7 +4,7 @@ class ActionReplayBuffer:
 
     def __init__(self,capacity = np.float("inf")):
         self.capacity = capacity
-        self.memories = []
+        self.memories = set()
         self.Goals = []
         self.ARP_dict = {}
 
