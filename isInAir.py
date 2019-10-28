@@ -1,4 +1,4 @@
-import numpy as np 
+import numpy as np
 
 def isInAir(env, original_observation):
 
@@ -7,6 +7,7 @@ def isInAir(env, original_observation):
     #logic and give it some more testing
 
     test_action = 0
+    env = env.unwrapped
     clone_state = env.clone_full_state()
     for _ in range(2):
         observation, reward, done, info = env.step(test_action)
@@ -35,12 +36,11 @@ def isInAir(env, original_observation):
     treadmill_window = original_observation[100:136,50:110,:]
     # img = Image.fromarray(treadmill_window, 'RGB')
     # img.show()
-    if str(treadmill_window) in treadmill_spaces:
-        return False
+    #if str(treadmill_window) in treadmill_spaces:
+    #    return False
 
     # diff = test_observation - observation
     # img = Image.fromarray(diff, 'RGB')
     # img.show()
 
     return True
-

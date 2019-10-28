@@ -13,17 +13,18 @@ class ActionReplayBuffer:
         Stores each state-action-reward sample from the environment
         If the capacity of the buffer is exceeded, delete the first sample
         '''
-        # arg1 - state, arg2 - action, arg3 - reward
+        # arg1 - state, arg2 - action, arg3 - reward.
+        # Convert to a tuple to store in memories 
         memory = [arg1, arg2, arg3]
+        memory = tuple(memory)
         # If this new memory is already in the set of the memories, don't put it in.
-        if memory in set(self.memory):
-            continue
-        else:
-            self.memory.append(memory)
-            if len(self.memories) > self.capacity:
-                self.memories = self.memories[1:]
+        self.memories.add(memory)
+        if len(self.memories) > self.capacity:
+            self.memories = self.memories[1:]
 
-    def find_Goals():
+    def find_Goals(self):
+        if len(self.memories) < 1:
+            return self.Goals
         for memory in self.memories:
             ARP_dict[memory[0]].append(memory[1:])
 

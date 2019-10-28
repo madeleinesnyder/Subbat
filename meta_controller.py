@@ -30,10 +30,14 @@ class MetaController:
     def build_graph(self, input_placeholder, output_size):
         #input should be observations (images)
         # output_size should be dimension of goal space
-        layer1 = tf.layers.Conv2D(input_placeholder, filters = 8, kernel_size = (32,32), strides = 4, activation = 'relu')
-        layer2 = tf.layers.Conv2D(layer1, filters = 4, kernel_size = (64,64), strides = 2, activation = 'relu')
-        layer3 = tf.layers.Conv2D(layer2, filters = 3, kernel_size = (64,64), strides = 1, activation = 'relu')
-        layer4 = tf.layers.Dense(layer3, units = 512, activation = 'relu')
+        #layer1 = tf.layers.Conv2D(input_placeholder, filters = 8, kernel_size = (32,32), strides = 4, activation = 'relu')
+        #layer2 = tf.layers.Conv2D(layer1, filters = 4, kernel_size = (64,64), strides = 2, activation = 'relu')
+        #layer3 = tf.layers.Conv2D(layer2, filters = 3, kernel_size = (64,64), strides = 1, activation = 'relu')
+        #layer4 = tf.layers.Dense(layer3, units = 512, activation = 'relu')
+        layer1 = tf.layers.Conv2D(input_placeholder, kernel_size = (32,32), strides = 4, activation = 'relu')
+        layer2 = tf.layers.Conv2D(layer1, kernel_size = (64,64), strides = 2, activation = 'relu')
+        layer3 = tf.layers.Conv2D(layer2, kernel_size = (64,64), strides = 1, activation = 'relu')
+        layer4 = tf.layers.Dense(layer3, activation = 'relu')
         self.q_t_values = tf.layers.Dense(layer4, units = output_size)
 
     def define_train_op(self):

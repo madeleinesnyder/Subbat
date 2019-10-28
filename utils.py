@@ -18,3 +18,6 @@ def meta_controller_targets(rewards, next_observations, meta_controller, discoun
 
 def random_goal(Goals):
 	return Goals[np.random.randint(low = 0, high = len(Goals))]
+
+def random_goal_state():
+	return 
