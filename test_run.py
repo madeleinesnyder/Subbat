@@ -23,7 +23,7 @@ random.seed(41)
 '''
 Make the Gym environment and open a tensorflow session
 '''
-env = gym.make('MontezumaRevenge-v0')
+env = gym.make('MontezumaRevengeNoFrameskip-v4')
 sess = tf.Session()
 
 '''
@@ -33,16 +33,16 @@ ARP = ActionReplayBuffer()
 Goals = ARP.find_Goals()
 
 '''
-Pre-training step. Get random goals, store things in d1, d2, ARP.
+Pre-training step. Get random goals, store things in ARP.
 Must check if dead, done, or jumping before storing
 '''
-done = False
-for i in range(25):
+for i in range(10):
     pdb.set_trace()
     observation = env.reset()
     dead = False
     done = False
-    while not done:
+    jumping = False
+    while not (done or dead):
         F = 0
         initial_observation = observation
         lives = 6
@@ -51,18 +51,18 @@ for i in range(25):
             action = env.action_space.sample()
             if action == 12:
                 action = 3
+            # Get if ALE is done, jumping, or dead in this next step.
             next_observation, reward, done, next_lives = env.step(action)
             jumping = isInAir(env,next_observation)
             dead = next_lives['ale.lives'] < lives
-            #dead = info
-            if jumping == False:
-                ARP.store(tuple(map(tuple, observation[0])),action,reward)
+            if not jumping:
+                ARP.store(tuple(tuple(row[0]) for row in observation),action,reward)
             F += 1
             observation = next_observation
             lives = next_lives['ale.lives']
-            pdb.set_trace()
-        if dead:
-            lives = next_lives['ale.lives']
-            F+=1
-Goals = ARP.find_Goals()
+
+ARP.find_Goals()
+Goals = ARP.Goals
+print(len(Goals))
+print(str(len(Goals))+" subgoals identified")
 env.close()

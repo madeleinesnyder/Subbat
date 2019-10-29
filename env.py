@@ -26,7 +26,7 @@ batch_size = 256
 '''
 Make the Gym environment and open a tensorflow session
 '''
-env = gym.make('MontezumaRevenge-v0')
+env = gym.make('MontezumaRevengeNoFrameskip-v4')
 sess = tf.Session()
 
 '''
@@ -35,7 +35,6 @@ Initialize the replay buffers
 ARP = ActionReplayBuffer()
 d1 = ReplayMemory()
 d2 = ReplayMemory()
-pdb.set_trace()
 Goals = ARP.find_Goals()
 
 '''
@@ -54,17 +53,18 @@ controller = Controller(sess, controller_hparams)
 
 '''
 Pre-training step. Get random goals, store things in d1, d2, ARP.
-Must check if dead, done, or jumping before storing
+Must check if jumping before storing
 '''
 for i in range(num_pre_training_episodes):
-    pdb.set_trace()
     observation = env.reset()
     goal = random_goal(Goals)
     done = False
-    while not done:
+    dead = False
+    lives = 6
+    while not (done or dead):
         F = 0
         initial_observation = observation
-        while not (done or observation == goal):
+        while not (done or observation == goal or dead):
             #action space is discrete on set {0,1,...,17}
             action = controller.epsGreedy([observation, goal], env.action_space)
             next_observation, f, done, info = env.step(action)
@@ -76,14 +76,14 @@ for i in range(num_pre_training_episodes):
             controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
 
             jumping = isInAir(env,next_observation)
-            #dead = info
-            if jumping == False:
-                ARP.store(next_observation,action,r,done)
-
+            dead = next_lives['ale.lives'] < lives
+            if not jumping:
+                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,r)
             F += f
             observation = next_observation
+
         d2.store(initial_observation, goal, F, next_observation)
-        if not done:
+        if not (done or dead):
             goal = random_goal(Goals)
     controller.anneal()
 

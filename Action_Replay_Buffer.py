@@ -1,4 +1,5 @@
 import numpy as np
+from collections import defaultdict
 
 class ActionReplayBuffer:
 
@@ -6,7 +7,7 @@ class ActionReplayBuffer:
         self.capacity = capacity
         self.memories = set()
         self.Goals = []
-        self.ARP_dict = {}
+        self.ARP_dict = defaultdict(list)
 
     def store(self,arg1,arg2,arg3):
         '''
@@ -14,7 +15,7 @@ class ActionReplayBuffer:
         If the capacity of the buffer is exceeded, delete the first sample
         '''
         # arg1 - state, arg2 - action, arg3 - reward.
-        # Convert to a tuple to store in memories 
+        # Convert to a tuple to store in memories
         memory = [arg1, arg2, arg3]
         memory = tuple(memory)
         # If this new memory is already in the set of the memories, don't put it in.
@@ -26,7 +27,7 @@ class ActionReplayBuffer:
         if len(self.memories) < 1:
             return self.Goals
         for memory in self.memories:
-            ARP_dict[memory[0]].append(memory[1:])
+            self.ARP_dict[memory[0]].append(memory[1:])
 
         for key, value in self.ARP_dict.items():
             unique_arps = set(value)
