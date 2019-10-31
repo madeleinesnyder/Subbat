@@ -12,6 +12,7 @@ import pdb
 from Action_Replay_Buffer import ActionReplayBuffer
 from isInAir import *
 from utils import *
+import pdb
 
 '''
 Initialize the environment and h-params (adjust later)
@@ -56,7 +57,7 @@ Must check if jumping before storing
 '''
 for i in range(num_pre_training_episodes):
     observation = env.reset()
-    goal = random_goal(Goals)
+    goal = ARP.random_Goal()
     done = False
     dead = False
     lives = 6
@@ -66,7 +67,7 @@ for i in range(num_pre_training_episodes):
         while not (done or observation == goal or dead):
             #action space is discrete on set {0,1,...,17}
             action = controller.epsGreedy([observation, goal], env.action_space)
-            next_observation, f, done, info = env.step(action)
+            next_observation, f, done, next_lives = env.step(action)
             r = intrinsic_reward(next_observation, goal)
 
             d1.store([initial_observation, goal], action, r, [next_observation, goal])
