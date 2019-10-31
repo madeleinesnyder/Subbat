@@ -3,11 +3,19 @@ from collections import defaultdict
 
 class ActionReplayBuffer:
 
+    '''
+    TODO: Find location of subgoal generator that observation starting from where the subgoal is and take 1 action, subtract the 2 and that's the location of the subgoals
+    This gives 3d matrix of subgoal, go into 2d.
+    Radius calculation
+    '''
+
+
     def __init__(self,capacity = np.float("inf")):
         self.capacity = capacity
         self.memories = set()
         self.Goals = []
         self.ARP_dict = defaultdict(list)
+        self.subgoal_locations = [] # TODO Write this function
 
     def store(self,arg1,arg2,arg3):
         '''
@@ -34,3 +42,10 @@ class ActionReplayBuffer:
             if len(unique_arps) > 1:
                 self.Goals.append(key)
         return self.Goals
+
+    def random_Goal(self):
+        random_state = random.getstate()
+        return random_state
+
+    #def at_subgoal(self,env,)
+        # TODO Write this function

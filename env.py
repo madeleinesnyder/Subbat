@@ -12,6 +12,7 @@ import pdb
 from Action_Replay_Buffer import ActionReplayBuffer
 from isInAir import *
 from utils import *
+import pdb
 
 '''
 Initialize the environment and h-params (adjust later)
@@ -43,7 +44,6 @@ Build the controller and meta-Controller
 meta_controller_input_shape = env.observation_space.shape
 controller_input_shape = env.observation_space.shape
 controller_input_shape = (controller_input_shape[0] * 2, controller_input_shape[1], controller_input_shape[2])
-Goals = []
 
 meta_controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "goal_dim": 10, "input_shape": meta_controller_input_shape}
 controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "action_dim": env.action_space.n, "input_shape": controller_input_shape}
@@ -57,7 +57,7 @@ Must check if jumping before storing
 '''
 for i in range(num_pre_training_episodes):
     observation = env.reset()
-    goal = random_goal(Goals)
+    goal = ARP.random_Goal()
     done = False
     dead = False
     lives = 6
@@ -67,7 +67,7 @@ for i in range(num_pre_training_episodes):
         while not (done or observation == goal or dead):
             #action space is discrete on set {0,1,...,17}
             action = controller.epsGreedy([observation, goal], env.action_space)
-            next_observation, f, done, info = env.step(action)
+            next_observation, f, done, next_lives = env.step(action)
             r = intrinsic_reward(next_observation, goal)
 
             d1.store([initial_observation, goal], action, r, [next_observation, goal])
