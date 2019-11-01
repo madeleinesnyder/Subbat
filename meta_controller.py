@@ -30,11 +30,12 @@ class MetaController:
     def build_graph(self, input_placeholder, output_size):
         # input should be observations (images)
         # output_size should be dimension of goal space
-        layer1 = tf.layers.conv2d(input_placeholder, filters = 8, kernel_size = (32,32), strides = 4, activation = 'relu')
-        layer2 = tf.layers.conv2d(layer1, filters = 4, kernel_size = (64,64), strides = 2, activation = 'relu')
-        layer3 = tf.layers.conv2d(layer2, filters = 3, kernel_size = (64,64), strides = 1, activation = 'relu')
-        layer4 = tf.layers.Dense(layer3, units = 512, activation = 'relu')
-        self.q_t_values = tf.layers.Dense(layer4, units = output_size)
+        layer1 = tf.layers.conv2d(input_placeholder, filters = 32, kernel_size = (8,8), strides = 4, activation = 'relu')
+        layer2 = tf.layers.conv2d(layer1, filters = 64, kernel_size = (4,4), strides = 2, activation = 'relu')
+        layer3 = tf.layers.conv2d(layer2, filters = 64, kernel_size = (3,3), strides = 1, activation = 'relu')
+        layer4 = tf.layers.dense(layer3, units = 512, activation = 'relu')
+
+        self.q_t_values = tf.layers.dense(layer4, units = output_size)
 
     def define_train_op(self):
         q_predictions = tf.reduce_sum(self.q_t_values * tf.one_hot(self.goals, self.goal_dim), axis=1)
