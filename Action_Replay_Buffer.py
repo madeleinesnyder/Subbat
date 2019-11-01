@@ -9,7 +9,6 @@ class ActionReplayBuffer:
     Radius calculation
     '''
 
-
     def __init__(self,capacity = np.float("inf")):
         self.capacity = capacity
         self.memories = set()
@@ -42,6 +41,17 @@ class ActionReplayBuffer:
             if len(unique_arps) > 1:
                 self.Goals.append(key)
         return self.Goals
+
+    def find_Goal_xy(self):
+        '''
+        How to find key?? TODO
+        '''
+        for goal in Goals:
+            action = 4 #
+            obs,reward,done,info = env.step(action)
+            goal_xy = (goal-obs)
+            subgoal_locations.append(goal_xy)
+
 
     def random_Goal(self):
         random_state = random.getstate()
