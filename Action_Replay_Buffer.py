@@ -42,20 +42,25 @@ class ActionReplayBuffer:
                 self.Goals.append(key)
         return self.Goals
 
-    def find_Goal_xy(self):
+    def get_Goal_xy(self,env,observation):
         '''
         How to find key?? TODO
         '''
-        for goal in Goals:
-            action = 4 #
-            obs,reward,done,info = env.step(action)
-            goal_xy = (goal-obs)
-            subgoal_locations.append(goal_xy)
+        clone_state = env.clone_full_state()
+        obs = observation
+        action = 4
+        next_obs,reward,done,info = env.step(action)
+        rgb_coords = next_obs-obs
+        pdb.set_trace()
+        subgoal_locations.append(coords)
+        env.restore_full_state(clone_state)
 
+    def at_subgoal(self,observation):
+        for subgoal_loc in subgoal_locations:
+            if np.linagl.norm(observation - subgoal_loc) < k:
+                return True
+            else:
+                return False
 
     def random_Goal(self):
-        random_state = random.getstate()
-        return random_state
-
-    #def at_subgoal(self,env,)
-        # TODO Write this function
+        return (135, 80)
