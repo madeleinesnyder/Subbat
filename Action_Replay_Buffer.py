@@ -9,7 +9,6 @@ class ActionReplayBuffer:
     Radius calculation
     '''
 
-
     def __init__(self,capacity = np.float("inf")):
         self.capacity = capacity
         self.memories = set()
@@ -43,9 +42,25 @@ class ActionReplayBuffer:
                 self.Goals.append(key)
         return self.Goals
 
-    def random_Goal(self):
-        random_state = random.getstate()
-        return random_state
+    def get_Goal_xy(self,env,observation):
+        '''
+        How to find key?? TODO
+        '''
+        clone_state = env.clone_full_state()
+        obs = observation
+        action = 4
+        next_obs,reward,done,info = env.step(action)
+        rgb_coords = next_obs-obs
+        pdb.set_trace()
+        subgoal_locations.append(coords)
+        env.restore_full_state(clone_state)
 
-    #def at_subgoal(self,env,)
-        # TODO Write this function
+    def at_subgoal(self,observation):
+        for subgoal_loc in subgoal_locations:
+            if np.linagl.norm(observation - subgoal_loc) < k:
+                return True
+            else:
+                return False
+
+    def random_Goal(self):
+        return (135, 80)

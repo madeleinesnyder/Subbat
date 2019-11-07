@@ -54,7 +54,9 @@ meta_controller = MetaController(sess, meta_controller_hparams)
 '''
 Pre-training step. Get random goals, store things in d1, d2, ARP.
 Must check if jumping before storing
+Subgoal to test = (135, 80)
 '''
+jumping_list = [1,10,11,12,14,15] # Get from Ryan
 for i in range(num_pre_training_episodes):
     observation = env.reset()
     goal = ARP.random_Goal()
@@ -67,19 +69,35 @@ for i in range(num_pre_training_episodes):
         while not (done or observation == goal or dead):
             #action space is discrete on set {0,1,...,17}
             action = controller.epsGreedy([observation, goal], env.action_space)
+            # Get True or False for Ale being in air
+            inAir = isInAir(env,observation)
+            # If Ale jumped, and is not in the air, calculate the rollout's reward from that observation
+            # Store this reward from the cloned env simulation
+            if (action in jumping_list) and (not jumping):
+                jumped_reward = getJumpOutcome(env,lives,observation)
+                ARP.store(tuple(tuple(row[0]) for row in observation),action,jumped_reward)
+                pdb.set_trace()
+                ARP.get_Goal_xy(observation)
+
+            # is he dead?
+            dead = next_lives['ale.lives'] < lives
+            # If he isn't in air, store the observation and the reward
+            if not inAir:
+                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,r)
+            F += f
+
+            # Step the env
             next_observation, f, done, next_lives = env.step(action)
+            # Get the reward
             r = intrinsic_reward(next_observation, goal)
 
+            # Tweak after initial replication.
             d1.store([initial_observation, goal], action, r, [next_observation, goal])
             controller_batch = d1.sample(batch_size)
             c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
             controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
 
-            jumping = isInAir(env,next_observation)
-            dead = next_lives['ale.lives'] < lives
-            if not jumping:
-                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,r)
-            F += f
+            lives = next_lives
             observation = next_observation
 
         d2.store(initial_observation, goal, F, next_observation)
@@ -109,8 +127,8 @@ for i in range(num_episodes):
             c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
             controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
 
-            jumping = isInAir(env,next_observation)
-            if jumping == False:
+            inAir = isInAir(env,next_observation)
+            if inAir == False:
                 ARP.store(next_observation,action,r,done)
 
             meta_controller_batch = d2.sample(batch_size)

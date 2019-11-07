@@ -7,7 +7,6 @@ def isInAir(env, original_observation):
     #logic and give it some more testing
 
     test_action = 0
-    env = env.unwrapped
     clone_state = env.clone_full_state()
     for _ in range(2):
         observation, reward, done, info = env.step(test_action)

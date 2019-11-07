@@ -28,7 +28,7 @@ class MetaController:
             return self.get_goal(observation)
 
     def build_graph(self, input_placeholder, output_size):
-        #input should be observations (images)
+        # input should be observations (images)
         # output_size should be dimension of goal space
         layer1 = tf.layers.conv2d(input_placeholder, filters = 32, kernel_size = (8,8), strides = 4, activation = 'relu')
         layer2 = tf.layers.conv2d(layer1, filters = 64, kernel_size = (4,4), strides = 2, activation = 'relu')

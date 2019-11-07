@@ -19,6 +19,7 @@ from utils import *
 Initialize the environment and h-params (adjust later)
 '''
 random.seed(41)
+#need to also do env.seed if you want to seed the environment
 
 '''
 Make the Gym environment and open a tensorflow session
@@ -52,12 +53,13 @@ for i in range(10):
             if action == 12:
                 action = 3
             # Get if ALE is done, jumping, or dead in this next step.
-            next_observation, reward, done, next_lives = env.step(action)
-            jumping = isInAir(env,next_observation)
+            jumping = isInAir(env,observation)
             dead = next_lives['ale.lives'] < lives
             if not jumping:
                 ARP.store(tuple(tuple(row[0]) for row in observation),action,reward)
+                ARP.get_Goal_xy(env,observation)
             F += 1
+            next_observation, reward, done, next_lives = env.step(action)
             observation = next_observation
             lives = next_lives['ale.lives']
 
