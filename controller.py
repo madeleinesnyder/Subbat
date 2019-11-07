@@ -22,7 +22,7 @@ class Controller:
             self.epsilon -= (1 - 0.1)/50000
 
     def epsGreedy(self, x, Actions):
-        if random.randint(0,1) <= self.eps:
+        if np.random.random() <= self.epsilon:
             return Actions.sample()
         else:
             return self.get_action(x)

@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 class MetaController:
 
@@ -21,8 +22,8 @@ class MetaController:
             self.epsilon -= (1 - 0.1)/50000
 
     def epsGreedy(self, goals, observation):
-        if random.randint(0,1) <= self.eps:
-            indx = random.randint(0, len(goals) - 1)
+        if np.random.random() <= self.epsilon:
+            indx = np.random.randint(0, len(goals))
             return goals[indx]
         else:
             return self.get_goal(observation)
