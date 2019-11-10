@@ -31,6 +31,9 @@ class ActionReplayBuffer:
             self.memories = self.memories[1:]
 
     def find_Goals(self):
+        '''
+        Find the states that corrospond to goals.
+        '''
         if len(self.memories) < 1:
             return self.Goals
         for memory in self.memories:
@@ -45,22 +48,43 @@ class ActionReplayBuffer:
     def get_Goal_xy(self,env,observation):
         '''
         How to find key?? TODO
+        Get the xy location of the goal from the state
+        Fix this unwrapping shit.
         '''
+        env = env.unwrapped
         clone_state = env.clone_full_state()
         obs = observation
         action = 4
         next_obs,reward,done,info = env.step(action)
         rgb_coords = next_obs-obs
-        pdb.set_trace()
-        subgoal_locations.append(coords)
+        nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
+        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
+        coord_tuple = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+        self.subgoal_locations.append(coord_tuple)
         env.restore_full_state(clone_state)
 
     def at_subgoal(self,observation):
-        for subgoal_loc in subgoal_locations:
-            if np.linagl.norm(observation - subgoal_loc) < k:
+        '''
+        Is ALE near enough to a subgoal?
+        '''
+        k = 500
+        for subgoal_loc in self.subgoal_locations:
+            if np.linalg.norm(observation - subgoal_loc) < k:
                 return True
             else:
                 return False
 
+    def load_temp_subgoals(self,sg_file):
+        '''
+        For testing purposes only. Loading in Calvin's list of subgoals npy array
+        '''
+        sgs = np.load(sg_file)
+        for i in range(len(sgs)):
+            self.subgoal_locations.append(sgs[i])
+
     def random_Goal(self):
-        return (135, 80)
+        '''
+        Get a random subgoal to initialize the exploration run in env.
+        '''
+        idx = np.random.randint(len(self.subgoal_locations))
+        return self.subgoal_locations[idx]
