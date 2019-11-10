@@ -18,3 +18,18 @@ def meta_controller_targets(rewards, next_observations, meta_controller, discoun
 
 def random_goal(Goals):
 	return Goals[np.random.randint(low = 0, high = len(Goals))]
+
+def convertToBinaryMask(subgoal_coordinates):
+	# subgoal_coordinates is list of two tuples
+	# first tuple are coordinates of top left corner of box
+	# second tuple are coordinates of bottom right corner of box
+    gameSize = (210,160,3)
+    topLeft = subgoal_coordinates[0]
+    bottomRight = subgoal_coordinates[1]
+    upper_y_bound = topLeft[0]
+    lower_y_bound = bottomRight[0]
+    left_x_bound = topLeft[1]
+    right_x_bound = bottomRight[1]
+    mask = np.zeros(gameSize)
+    mask[upper_y_bound:lower_y_bound, left_x_bound:right_x_bound, :] = 1
+    return mask
