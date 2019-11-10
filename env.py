@@ -12,6 +12,7 @@ import pdb
 from Action_Replay_Buffer import ActionReplayBuffer
 from isInAir import *
 from utils import *
+from getJumpOutcome import *
 import pdb
 
 '''
@@ -52,6 +53,11 @@ controller = Controller(sess, controller_hparams)
 meta_controller = MetaController(sess, meta_controller_hparams)
 
 '''
+STEP FOR TESTING ONLY. LOAD IN THE SUBGOALS THAT CALVIN PROVIDED
+'''
+ARP.load_temp_subgoals('subgoals_masks.npy')
+
+'''
 Pre-training step. Get random goals, store things in d1, d2, ARP.
 Must check if jumping before storing
 Subgoal to test = (135, 80)
@@ -62,42 +68,54 @@ for i in range(num_pre_training_episodes):
     goal = ARP.random_Goal()
     done = False
     dead = False
+    at_subgoal = False
     lives = 6
+    next_lives = 6
     while not (done or dead):
         F = 0
         initial_observation = observation
-        while not (done or observation == goal or dead):
+        while not (done or at_subgoal or dead):
+
             #action space is discrete on set {0,1,...,17}
             action = controller.epsGreedy([observation, goal], env.action_space)
+
             # Get True or False for Ale being in air
             inAir = isInAir(env,observation)
+
             # If Ale jumped, and is not in the air, calculate the rollout's reward from that observation
             # Store this reward from the cloned env simulation
-            if (action in jumping_list) and (not jumping):
-                jumped_reward = getJumpOutcome(env,lives,observation)
+            if (action in jumping_list) and (not inAir):
+                jumped_reward = getJumpOutcome(env,lives)
                 ARP.store(tuple(tuple(row[0]) for row in observation),action,jumped_reward)
-                pdb.set_trace()
-                ARP.get_Goal_xy(observation)
+                ARP.get_Goal_xy(env,observation)
+
+            # STEP THE ENV
+            next_observation, f, done, next_lives = env.step(action)
+
+            # If he isn't in air, store the observation and the reward
+            if not inAir:
+                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
+            F += f
 
             # is he dead?
             dead = next_lives['ale.lives'] < lives
-            # If he isn't in air, store the observation and the reward
-            if not inAir:
-                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,r)
-            F += f
 
-            # Step the env
-            next_observation, f, done, next_lives = env.step(action)
-            # Get the reward
-            r = intrinsic_reward(next_observation, goal)
+            # Is he at a subgoal?
+            ARP.at_subgoal(next_observation)
 
-            # Tweak after initial replication.
+            # Record the reward
+            r = intrinsic_reward(next_observation, goal, ARP)
+
+            # Store the state action reward goal stuff
             d1.store([initial_observation, goal], action, r, [next_observation, goal])
             controller_batch = d1.sample(batch_size)
             c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
             controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
 
+            # update lives according to whether or not he died
             lives = next_lives
+
+            # Update the observation
             observation = next_observation
 
         d2.store(initial_observation, goal, F, next_observation)

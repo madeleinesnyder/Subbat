@@ -1,7 +1,8 @@
 import numpy as np
+from Action_Replay_Buffer import *
 
-def intrinsic_reward(obs, goal):
-	if obs == goal:
+def intrinsic_reward(obs, goal, ARP):
+	if ARP.at_subgoal == True:
 		return 1
 	return 0
 
