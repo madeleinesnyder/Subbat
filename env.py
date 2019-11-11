@@ -30,6 +30,7 @@ Make the Gym environment and open a tensorflow session
 '''
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
 sess = tf.Session()
+tf.global_variables_initializer().run(session=sess)
 
 '''
 Initialize the replay buffers
@@ -64,6 +65,7 @@ Subgoal to test = (135, 80)
 '''
 jumping_list = [1,10,11,12,14,15] # Get from Ryan
 for i in range(num_pre_training_episodes):
+    print("episode {0}".format(i))
     observation = env.reset()
     goal = ARP.random_Goal()
     done = False
@@ -107,13 +109,13 @@ for i in range(num_pre_training_episodes):
             r = intrinsic_reward(next_observation, goal, ARP)
 
             # Store the state action reward goal stuff
-            d1.store([initial_observation, goal], action, r, [next_observation, goal])
+            d1.store(np.concatenate([initial_observation, goal], axis = 0), action, r, np.concatenate([next_observation, goal], axis = 0))
             controller_batch = d1.sample(batch_size)
-            c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
-            controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
+            c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
+            controller.update(controller_batch[0], controller_batch[1], c_targets)
 
             # update lives according to whether or not he died
-            lives = next_lives
+            lives = next_lives['ale.lives']
 
             # Update the observation
             observation = next_observation

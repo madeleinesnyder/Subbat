@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 from Action_Replay_Buffer import *
 
 def intrinsic_reward(obs, goal, ARP):
@@ -7,7 +8,7 @@ def intrinsic_reward(obs, goal, ARP):
 	return 0
 
 def controller_targets(rewards, next_observations, controller, discount):
-	next_observations = np.array([obs[0] for obs in next_observations])
+	#next_observations = np.array([obs[0] for obs in next_observations])
 	q_values = controller.get_q_vals(next_observations)
 	targets = rewards + discount * np.max(q_values, axis = 1)
 	return targets
