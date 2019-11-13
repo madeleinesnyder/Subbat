@@ -58,7 +58,7 @@ class ActionReplayBuffer:
         next_obs,reward,done,info = env.step(action)
         rgb_coords = next_obs-obs
         nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
-        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
+        [mean_x, mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
         coord_tuple = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
         self.subgoal_locations.append(coord_tuple)
         env.restore_full_state(clone_state)
@@ -67,7 +67,7 @@ class ActionReplayBuffer:
         '''
         Is ALE near enough to a subgoal?
         '''
-        k = 500
+        k = 10
         for subgoal_loc in self.subgoal_locations:
             if np.linalg.norm(observation - subgoal_loc) < k:
                 return True
