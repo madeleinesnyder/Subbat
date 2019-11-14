@@ -97,18 +97,20 @@ for i in range(num_pre_training_episodes):
             # If he isn't in air, store the observation and the reward
             if not inAir:
                 ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
+                ARP.get_Goal_xy(env,observation)
             F += f
 
             # is he dead?
             dead = next_lives['ale.lives'] < lives
 
             # Is he at a subgoal?
-            ARP.at_subgoal(next_observation)
+            ARP.at_subgoal(env,next_observation,goal)
 
             # Record the reward
             r = intrinsic_reward(next_observation, goal, ARP)
 
             # Store the state action reward goal stuff
+            # should we be storing if inAir is true?
             d1.store(np.concatenate([initial_observation, goal], axis = 0), action, r, np.concatenate([next_observation, goal], axis = 0))
             controller_batch = d1.sample(batch_size)
             c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
