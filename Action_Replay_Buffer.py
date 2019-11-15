@@ -16,7 +16,7 @@ class ActionReplayBuffer:
         self.memories = set()
         self.Goals = []
         self.ARP_dict = defaultdict(list)
-        self.subgoal_locations = [] # TODO Write this function
+        self.subgoal_locations = [] 
 
     def store(self,arg1,arg2,arg3):
         '''
@@ -53,9 +53,11 @@ class ActionReplayBuffer:
         '''
         env = env.unwrapped
         clone_state = env.clone_full_state()
-        action = action
-        next_obs,reward,done,info = env.step(action)
-        rgb_coords = next_obs-obs
+        test_action = action
+        for _ in range(2):
+            observation, reward, done, info = env.step(test_action)
+            test_observation, reward, done, info = env.step(test_action)
+        rgb_coords = test_observation-obs
         if np.sum(rgb_coords) != 0:
             env.restore_full_state(clone_state)
             return rgb_coords
@@ -88,12 +90,10 @@ class ActionReplayBuffer:
         '''
         #goal_xy = convertToSubgoalCoordinates(goal)
         goal_xy = goal
-        pdb.set_trace()
         for action in [4,5,11]:
             location_ale = self.attempt_action(env,action,observation)
             if int(np.sum(location_ale)) > 0:
                 return location_ale
-            pdb.set_trace()
         nonzero_coords = np.where(location_ale[:,:,0] != 0)
         [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
         coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
