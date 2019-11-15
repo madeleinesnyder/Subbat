@@ -8,7 +8,6 @@ from controller import Controller
 import time
 import numpy as np
 import pickle
-import pdb
 from Action_Replay_Buffer import ActionReplayBuffer
 from isInAir import *
 from utils import *
@@ -67,7 +66,7 @@ jumping_list = [1,10,11,12,14,15] # Get from Ryan
 for i in range(num_pre_training_episodes):
     print("episode {0}".format(i))
     observation = env.reset()
-    goal = ARP.random_Goal()
+    goalxy = ARP.random_Goal()
     done = False
     dead = False
     at_subgoal = False
@@ -78,13 +77,16 @@ for i in range(num_pre_training_episodes):
         initial_observation = observation
         while not (done or at_subgoal or dead):
 
-            #action space is discrete on set {0,1,...,17}
+            # Convert the goalxy coordinates to a binary mask so the controller can deal with it
+            goal = convertToBinaryMask(((goalxy[0]-5,goalxy[0]+5),(goalxy[1]-5,goalxy[1]+5)))
+
+            # Get an action from the controller.
             action = controller.epsGreedy([observation, goal], env.action_space)
 
-            # Get True or False for Ale being in air
+            # Check if ALE is in the air (falling or jumping).
             inAir = isInAir(env,observation)
 
-            # If Ale jumped, and is not in the air, calculate the rollout's reward from that observation
+            # If Ale jumped, and is not yet airborn, calculate the rollout's reward from that jump.
             # Store this reward from the cloned env simulation
             if (action in jumping_list) and (not inAir):
                 jumped_reward = getJumpOutcome(env,lives)
@@ -97,21 +99,28 @@ for i in range(num_pre_training_episodes):
             # If he isn't in air, store the observation and the reward
             if not inAir:
                 ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
+                ARP.get_Goal_xy(env,observation)
             F += f
 
-            # is he dead?
+            # Check if ALE died during this env step.
             dead = next_lives['ale.lives'] < lives
 
-            # Is he at a subgoal?
-            ARP.at_subgoal(next_observation)
+            # Check if ALE at the subgoal.
+            ARP.at_subgoal(env,next_observation,goalxy)
 
-            # Record the reward
-            r = intrinsic_reward(next_observation, goal, ARP)
+            # Record the reward if reached the subgoal.
+            r = intrinsic_reward(next_observation, goalxy, ARP)
 
-            # Store the state action reward goal stuff
+            # Store the obs, goal, action, reward, etc. in the controller buffer
             d1.store(np.concatenate([initial_observation, goal], axis = 0), action, r, np.concatenate([next_observation, goal], axis = 0))
+
+            # Sample a batch from the buffer if there's enough in the buffer
             controller_batch = d1.sample(batch_size)
+
+            # Get the controller targets
             c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
+
+            # Update the controller.
             controller.update(controller_batch[0], controller_batch[1], c_targets)
 
             # update lives according to whether or not he died
@@ -122,7 +131,7 @@ for i in range(num_pre_training_episodes):
 
         d2.store(initial_observation, goal, F, next_observation)
         if not (done or dead):
-            goal = random_goal(Goals)
+            goalxy = ARP.random_Goal()
     controller.anneal()
 
 '''

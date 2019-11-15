@@ -1,5 +1,7 @@
 import numpy as np
 from collections import defaultdict
+import pdb
+from utils import *
 
 class ActionReplayBuffer:
 
@@ -14,7 +16,7 @@ class ActionReplayBuffer:
         self.memories = set()
         self.Goals = []
         self.ARP_dict = defaultdict(list)
-        self.subgoal_locations = [] # TODO Write this function
+        self.subgoal_locations = [] 
 
     def store(self,arg1,arg2,arg3):
         '''
@@ -45,34 +47,61 @@ class ActionReplayBuffer:
                 self.Goals.append(key)
         return self.Goals
 
+    def attempt_action(self, env, action, obs):
+        '''
+        This function attempts different actions to get an xy location for ALE (4 and 5)
+        '''
+        env = env.unwrapped
+        clone_state = env.clone_full_state()
+        test_action = action
+        for _ in range(2):
+            observation, reward, done, info = env.step(test_action)
+            test_observation, reward, done, info = env.step(test_action)
+        rgb_coords = test_observation-obs
+        if np.sum(rgb_coords) != 0:
+            env.restore_full_state(clone_state)
+            return rgb_coords
+        else:
+            env.restore_full_state(clone_state)
+            return np.zeros(1)
+
+
     def get_Goal_xy(self,env,observation):
         '''
         How to find key?? TODO
         Get the xy location of the goal from the state
-        Fix this unwrapping shit.
+        Fix this unwrapping shit. first check 4 (left); then check 5 (down)
         '''
-        env = env.unwrapped
-        clone_state = env.clone_full_state()
         obs = observation
-        action = 4
-        next_obs,reward,done,info = env.step(action)
-        rgb_coords = next_obs-obs
+        # Change this such that you have at least one action that will always work
+        # He might be on the ladder in which case jumping will yeild rgb_coords = 0
+        for action in [4,5,11]:
+            rgb_coords = self.attempt_action(env,action,obs)
+            if np.sum(rgb_coords) > 0:
+                return rgb_coords
         nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
-        [mean_x, mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
-        coord_tuple = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
-        self.subgoal_locations.append(coord_tuple)
-        env.restore_full_state(clone_state)
+        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
+        coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+        self.subgoal_locations.append(coords)
 
-    def at_subgoal(self,observation):
+    def at_subgoal(self,env,observation,goal):
         '''
         Is ALE near enough to a subgoal?
         '''
-        k = 10
-        for subgoal_loc in self.subgoal_locations:
-            if np.linalg.norm(observation - subgoal_loc) < k:
-                return True
-            else:
-                return False
+        #goal_xy = convertToSubgoalCoordinates(goal)
+        goal_xy = goal
+        for action in [4,5,11]:
+            location_ale = self.attempt_action(env,action,observation)
+            if int(np.sum(location_ale)) > 0:
+                return location_ale
+        nonzero_coords = np.where(location_ale[:,:,0] != 0)
+        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
+        coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+        k = 10 # Because Calvin says so.
+        if np.linalg.norm(coords - goal_xy) < k:
+            return True
+        else:
+            return False
 
     def load_temp_subgoals(self,sg_file):
         '''
@@ -80,7 +109,8 @@ class ActionReplayBuffer:
         '''
         sgs = np.load(sg_file)
         for i in range(len(sgs)):
-            self.subgoal_locations.append(sgs[i])
+            subgoal_xy = convertToSubgoalCoordinates(sgs[i])
+            self.subgoal_locations.append(subgoal_xy)
 
     def random_Goal(self):
         '''

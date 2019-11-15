@@ -28,16 +28,16 @@ def convertToBinaryMask(subgoal_coordinates):
 	# Output:
 	#	3D numpy array of shape (210, 160, 3), with entries in region specified by subgoal_coordinates set to 1
 	#	and 0 elsewhere.
-    gameSize = (210,160,3)
-    topLeft = subgoal_coordinates[0]
-    bottomRight = subgoal_coordinates[1]
-    upper_y_bound = topLeft[0]
-    lower_y_bound = bottomRight[0]
-    left_x_bound = topLeft[1]
-    right_x_bound = bottomRight[1]
-    mask = np.zeros(gameSize)
-    mask[upper_y_bound:lower_y_bound, left_x_bound:right_x_bound, :] = 1
-    return mask
+	gameSize = (210,160,3)
+	topLeft = subgoal_coordinates[0]
+	bottomRight = subgoal_coordinates[1]
+	upper_y_bound = topLeft[0]
+	lower_y_bound = bottomRight[0]
+	left_x_bound = topLeft[1]
+	right_x_bound = bottomRight[1]
+	mask = np.zeros(gameSize)
+	mask[upper_y_bound:lower_y_bound, left_x_bound:right_x_bound, :] = 1
+	return mask
 
 def convertToSubgoalCoordinates(mask):
 	# Input:
