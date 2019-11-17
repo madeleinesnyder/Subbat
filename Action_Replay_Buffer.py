@@ -48,7 +48,7 @@ class ActionReplayBuffer:
 
         for key, value in self.ARP_dict.items():
             unique_arps = set(value)
-            if len(unique_arps) > 1:
+            if (len(unique_arps) > 1):
                 self.subgoal_locations.append(key)
         return self.subgoal_locations
 
@@ -112,13 +112,7 @@ class ActionReplayBuffer:
         '''
         #goal_xy = convertToSubgoalCoordinates(goal)
         goal_xy = goal
-        for action in [4,5,11]:
-            location_ale = self.attempt_action(env,action,observation)
-            if int(np.sum(location_ale)) > 0:
-                return location_ale
-        nonzero_coords = np.where(location_ale[:,:,0] != 0)
-        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
-        coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+        coords = self.get_observation_coordinates(env,observation)
         k = 10 # Because Calvin says so.
         if np.linalg.norm(coords - goal_xy) < k:
             return True

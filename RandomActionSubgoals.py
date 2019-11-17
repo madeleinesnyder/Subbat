@@ -5,7 +5,6 @@ import numpy as np
 from utils import isInAir, getJumpOutcome
 from Action_Replay_Buffer import ActionReplayBuffer
 
-
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
 
 #seed everything
