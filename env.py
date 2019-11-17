@@ -1,203 +1,330 @@
 import gym
-#from gym.utils.play import play
+# from gym.utils.play import play
 import random
-import tensorflow as tf
 from replay_memory import ReplayMemory
 from meta_controller import MetaController
 from controller import Controller
 import time
 import numpy as np
-import pickle
-from Action_Replay_Buffer import ActionReplayBuffer
-from isInAir import *
-from utils import *
-from getJumpOutcome import *
-import pdb
 
-'''
-Initialize the environment and h-params (adjust later)
-'''
+#Useful imports for debugging
+from PIL import Image
+
 random.seed(42)
-learning_rate = 2.5e-4
-num_episodes = 10000
-num_pre_training_episodes = 10
-discount = 0.99
-batch_size = 256
 
-'''
-Make the Gym environment and open a tensorflow session
-'''
-env = gym.make('MontezumaRevengeNoFrameskip-v4')
-sess = tf.Session()
-tf.global_variables_initializer().run(session=sess)
-
-'''
-Initialize the replay buffers
-'''
-ARP = ActionReplayBuffer()
 d1 = ReplayMemory()
 d2 = ReplayMemory()
-Goals = ARP.find_subgoals() # this returns an array of the xy coordinates for each subgoal in memory
 
-'''
-Build the controller and meta-Controller
-'''
-meta_controller_input_shape = env.observation_space.shape
-controller_input_shape = env.observation_space.shape
-controller_input_shape = (controller_input_shape[0] * 2, controller_input_shape[1], controller_input_shape[2])
+#need to code in logic to end game at total reward of 400
 
-meta_controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "goal_dim": 10, "input_shape": meta_controller_input_shape}
-controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "action_dim": env.action_space.n, "input_shape": controller_input_shape}
 
-controller = Controller(sess, controller_hparams)
-meta_controller = MetaController(sess, meta_controller_hparams)
+#
+# Goals = [] #TODO
+# meta_controller = MetaController(0.0025)
+# controller = Controller(0.00025)
 
-'''
-STEP FOR TESTING ONLY. LOAD IN THE SUBGOALS THAT CALVIN PROVIDED
-'''
-ARP.load_temp_subgoals('subgoals_masks.npy')
+# num_episodes = 10000
+# env = gym.make('MontezumaRevenge-v0')
+# for i in range(num_episodes):
+#     #observation space is 210x160x3
+#     observation = env.reset()
+#     goal = meta_controller.epsGreedy(observation, Goals)
+#     done = False
+#     while not done:
+#         F = 0
+#         initial_observation = observation
+#         while not (done or observation == goal):
+#             #action space is discrete on set {0,1,...,17}
+#             Actions = env.action_space
+#             action = controller.epsGreedy([observation, goal], Actions)
+#             next_observation, f, done, info = env.step(action)
+#             r = 1 if next_observation == goal else 0
+#             d1.store([observation, goal], action, r, [next_observation, goal])
+#             controller.update(d1)
+#             meta_controller.update(d2)
+#             F += f
+#             observation = next_observation
+#         d2.store(initial_observation, goal, F, next_observation)
+#         if not done:
+#             goal = meta_controller.epsGreedy(observation, Goals)
+#     meta_controller.anneal()
+#     controller.anneal()
+# env.close()
 
-'''
-Pre-training step. Get random goals, store things in d1, d2, ARP.
-Must check if jumping before storing
-Subgoal to test = (135, 80)
-'''
-jumping_list = [1,10,11,12,14,15] # Get from Ryan
-for i in range(num_pre_training_episodes):
-    print("episode {0}".format(i))
+
+def isInAir(env, original_observation, action, last_action):
+
+    test_action = 0
+    clone_state = env.clone_full_state()
+    for _ in range(2):
+        observation, reward, done, info = env.step(test_action)
+        test_observation, reward, done, info = env.step(test_action)
+    env.restore_full_state(clone_state)
+
+    #replace treadmill in picture
+    observation[135:142,59:101,:] = np.zeros((7,42,3))
+    test_observation[135:142,59:101,:] = np.zeros((7,42,3))
+
+    #replace header in picture
+    observation[:20,:,:] = np.zeros((20,160,3))
+    test_observation[:20,:,:] = np.zeros((20,160,3))
+
+    #replace skull in picture
+    observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+    test_observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+
+    #replace key in picture
+    observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+    test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+
+    #add in key logic
+    key_test_observation = test_observation[23:45,53:67,:]
+    key_original_observation = original_observation[23:45,53:67,:]
+
+    if np.any(key_original_observation - key_test_observation):
+        return True
+
+    if not np.any(test_observation - observation):
+        return False
+
+    treadmill_observation = original_observation[135:136,60:100,:]
+    valid_jumps = [1,10,11,12,14,15,16,17]
+    if np.any(treadmill_observation) and action not in valid_jumps and last_action not in valid_jumps:
+        return False
+
+    return True
+
+def getJumpOutcome(env, original_lives):
+    #outcomes: death (-1), no death (0), reward (1)
+
+    action = 0
+    clone_state = env.clone_full_state()
+    while True:
+        obs, reward, done, info = env.step(action)
+        lives = info['ale.lives']
+        if reward != 0:
+            env.restore_full_state(clone_state)
+            return 1
+        if lives < original_lives:
+            env.restore_full_state(clone_state)
+            return -1
+        if not isInAir(env, obs, action, action):
+            obs, reward, done, info = env.step(action)
+            lives = info['ale.lives']
+            if lives < original_lives:
+                env.restore_full_state(clone_state)
+                return -1
+            env.restore_full_state(clone_state)
+            return 0
+    #Key reward is gained while isInAir is True. For skull case, self.lives
+    #decremented at same time isInAir is false. For falling to death case,
+    #isInAir if False one frame before self.lives is decremented
+
+    return
+
+# def canJump(original_observation):
+#
+#     test_action = 1
+#     clone_state = env.clone_full_state()
+#     for _ in range(2):
+#         # time.sleep(0.1)
+#         observation, reward, done, info = env.step(test_action)
+#         # env.render()
+#         # time.sleep(0.1)
+#         test_observation, reward, done, info = env.step(test_action)
+#         # env.render()
+#     env.restore_full_state(clone_state)
+#     # env.render()
+#
+#     #replace treadmill in picture
+#     observation[135:142,59:101,:] = np.zeros((7,42,3))
+#     test_observation[135:142,59:101,:] = np.zeros((7,42,3))
+#
+#     #replace header in picture
+#     observation[:20,:,:] = np.zeros((20,160,3))
+#     test_observation[:20,:,:] = np.zeros((20,160,3))
+#
+#     #replace skull in picture
+#     observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+#     test_observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+#
+#     #replace key in picture
+#     observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+#     test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+#
+#     if np.any(test_observation - observation):
+#         return True
+#     return False
+
+
+# 0: do nothing
+# 1: jump vertically up
+# 2: nothing??? (may be an action not able to be used in current position, up maybe)
+# 3: move one step right
+# 4: move one step left
+# 5: move one step down
+# 6: looks like another move one step right
+# 7: looks like another move one step left
+# 8: looks like another move one step right
+# https://github.com/openai/gym/blob/master/gym/envs/atari/atari_env.py
+
+env = gym.make('MontezumaRevengeNoFrameskip-v4')
+# play(env)
+env.render()
+for i_episode in range(1):
     observation = env.reset()
-    goalxy = ARP.get_random_goal() # returns xy coordiantes of random subgoal in memory
-    done = False
-    dead = False
-    at_subgoal = False
-    lives = 6
-    next_lives = 6
-    while not (done or dead):
-        F = 0
-        initial_observation = observation
-        while not (done or at_subgoal or dead):
+    #jump right to the rope
+    # actions = [11] + [0 for _ in range(60)]
+    #jump to the upper right platform
+    # actions = [3,3,3,3,3,3,3,3,3,3,3,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    #go down the treadmill and walk to the rightmost edge
+    #actions = [5 for _ in range(34)] + [3 for _ in range(45)]
+    #go down the treadmill and walk left and die
+#
+#     #jump left and die
+    # actions = [0,0,0,0,0,0,12] + [0 for _ in range(115)]
+#     #testing the vertical jump issue
+#     # actions = [5,5,5] + [1,5] * 50
+#     #get to and jump over the skull
+#     # actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+#     # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)]
+#     #get to the key
+#     # actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+#     # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
+#     # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)]
+#     #finish the room
+    actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+    [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
+    [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
+    [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
+    [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
+    [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
+    [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
+#
+#     #wouldn't mind making a more robust one
+#
+    total_reward = 0
+    LastInAir = False
+    last_action = 0
+    for t in range(len(actions)):
+        action = actions[t]
+        obs, reward, done, info = env.step(action)
+        original_lives = info["ale.lives"]
+        total_reward += reward
+        if total_reward == 400:
+            print("Congratulations!! You've reached the end of the first room :)")
+            break
+        env.render()
+        inAir = isInAir(env, obs, action, last_action)
+        jumping = LastInAir == False and inAir == True
+        if jumping:
+            jump_outcome = getJumpOutcome(env, original_lives)
+            print("jumping", jump_outcome)
+            jumping = False
+            time.sleep(3)
+        print(t, action, inAir, info["ale.lives"], reward)
+        LastInAir = inAir
+        last_action = action
+        #
+        # if t > 70:
+        #     time.sleep(2)
 
-            # Convert the goalxy coordinates to a binary mask so the controller can deal with it
-            goal = convertToBinaryMask(((goalxy[0]-5,goalxy[0]+5),(goalxy[1]-5,goalxy[1]+5)))
+        # if t > 630 and t <= 645:
+            # time.sleep(3)
+        # if t == 635:
+        #     img = Image.fromarray(obs, 'RGB')
+        #     img.show()
+        #     obs = obs[135:136,60:100,:]
+        #     print(np.any(obs))
+        #     img = Image.fromarray(obs, 'RGB')
+        #     img.show()
 
-            # Get an action from the controller.
-            action = controller.epsGreedy([observation, goal], env.action_space)
+        #one is because of foot still in air after jumping
 
-            # Check if ALE is in the air (falling or jumping).
-            inAir = isInAir(env,observation)
+        time.sleep(0.1)
 
-            # If Ale jumped, and is not yet airborn, calculate the rollout's reward from that jump.
-            # Store this reward from the cloned env simulation
-            if (action in jumping_list) and (not inAir):
-                jumped_reward = getJumpOutcome(env,lives)
-                observation_xy = ARP.get_observation_coordinates(env,observation)
-                ARP.store(observation_xy,action,jumped_reward)
-                ARP.get_goal_coordinates(env,observation)
 
-            # STEP THE ENV
-            next_observation, f, done, next_lives = env.step(action)
 
-            # If he isn't in air, store the observation and the reward
-            if not inAir:
-                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
-                ARP.get_goal_coordinates(env,observation)
-            F += f
+#I think every action should now have a point of termination. Vertical jump terminates
+#at the top, but that should actually be ok. ARP should be a set, and every time we
+#perform an action
 
-            # Check if ALE died during this env step.
-            dead = next_lives['ale.lives'] < lives
+#peak of some jumps is an issue like I thought it would be. Hard code solution...
+#jump takes 18 frames. I think death in general is fine. Anytime you lose a life,
+#we know the action has terminated and we can trace back from there. Need to run this
+#by Madeleine and through my head a bit more. Umm apparently you can't jump vertically
+#two times in a row?
 
-            # Check if ALE at the subgoal.
-            ARP.at_subgoal(env,next_observation,goalxy)
+#code that creates the treadmill file for IsInAir. Only here for the record
+# treadmill_spaces = set()
+# ladder_actions = [5 for _ in range(32)]
+# #get to the treadmill
+# env.reset()
+# for t in range(len(ladder_actions)):
+#     action = ladder_actions[t]
+#     observation, reward, done, info = env.step(action)
+#     env.render()
+#
+# # end_actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+# # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
+# # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
+# # [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
+# # [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
+# # [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
+# # [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
+# actions = [5] + [3 for _ in range(49)] + [4 for _ in range(29)] + [3 for _ in range(87)] + \
+# [4 for _ in range(29)] + [3 for _ in range(87)] + [4 for _ in range(29)] + [3 for _ in range(87)] + \
+# [0 for _ in range(75)] + [3 for _ in range(60)]
+# for t in range(len(actions)):
+#     env.render()
+#     action = actions[t]
+#
+#     observation, reward, done, info = env.step(action)
+#     observation = observation[117:136,50:110,:]
+#
+#     # if t == 10:
+#     #     img = Image.fromarray(observation, 'RGB')
+#     #     img.show()
+#
+#     treadmill_spaces.add(str(observation))
+#     print(len(treadmill_spaces))
+#     # time.sleep(0.05)
 
-            # Record the reward if reached the subgoal.
-            r = intrinsic_reward(next_observation, goalxy, ARP)
+# env.reset()
+# for t in range(len(end_actions)):
+#     env.render()
+#     action = end_actions[t]
+#
+#     observation, reward, done, info = env.step(action)
+#     observation = observation[100:136,50:110,:]
+#
+#     treadmill_spaces.add(str(observation))
+#     print(len(treadmill_spaces))
+#     time.sleep(0.05)
 
-            # Store the obs, goal, action, reward, etc. in the controller buffer
-            d1.store(np.concatenate([initial_observation, goal], axis = 0), action, r, np.concatenate([next_observation, goal], axis = 0))
+# filename = "treadmill_spaces"
+# outfile = open(filename, 'wb')
+# pickle.dump(treadmill_spaces, outfile)
 
-            # Sample a batch from the buffer if there's enough in the buffer
-            controller_batch = d1.sample(batch_size)
 
-            # Get the controller targets
-            c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
+#best path forward may be just digging into the data and seeing what it looks like.
+#it'd be better if it was only one of four directions, but issue is that looks like jumping
+#horizontally as well. But if travel different distances, that could be resolved.
 
-            # Update the controller.
-            controller.update(controller_batch[0], controller_batch[1], c_targets)
+#Turning upside down while dying?
 
-            # update lives according to whether or not he died
-            lives = next_lives['ale.lives']
+#could test if all black is around Ale. Hard.
 
-            # Update the observation
-            observation = next_observation
+#NOOP!!! Treadmill and Skull will be issue. I think it would be possible to
+#hardcode treadmill... watch out for skull moving, just window it. Makes it
+#easier to store actually. Can even try cutting above skull for the regular
+#NOOP check but that may create weird edge cases that worry me. Cut out treadmill too!!
+#Also may need to cut banner at top. Also need to box out key still
 
-        d2.store(initial_observation, goal, F, next_observation)
-        if not (done or dead):
-            goalxy = ARP.get_random_goal()
-    controller.anneal()
 
-'''
-Main h-DQN algorithm
-'''
-for i in range(num_episodes):
-    observation = env.reset()
-    Goals = ARP.find_subgoals()
-    goal = meta_controller.epsGreedy(observation, Goals)
-    done = False
-    while not done:
-        F = 0
-        initial_observation = observation
-        while not (done or observation == goal):
-
-            # Convert the goalxy coordinates to a binary mask so the controller can deal with it
-            #goal = convertToBinaryMask(((goalxy[0]-5,goalxy[0]+5),(goalxy[1]-5,goalxy[1]+5)))
-
-            # Get an action from the controller
-            action = controller.epsGreedy([observation, goal], env.action_space)
-
-            # Step the env.
-            next_observation, f, done, info = env.step(action)
-
-            # Get reward from accomplishing subgoal. Should this be xy?
-            r = intrinsic_reward(next_observation, goal)
-
-            # Store the obs,goal,action,r,etc for the controller in the buffer
-            d1.store([initial_observation, goal], action, r, [next_observation, goal])
-
-            # Sample from the controller batch if there are enough samples
-            controller_batch = d1.sample(batch_size)
-
-            # Get the targets for the controller
-            c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
-
-            # Update the controller.
-            controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
-
-            # Check if ALE is in the air (falling or jumping)
-            inAir = isInAir(env,next_observation)
-
-            # If ALE isn't in the air, store the observation and get the xy coordinates of the goal
-            if not inAir:
-                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
-                ARP.get_goal_coordinates(env,observation)
-            F += f
-
-            # Sample from the meta contrnoller if there is enough samples
-            meta_controller_batch = d2.sample(batch_size)
-
-            # Get the meta controller targets
-            m_targets = meta_controller_targets(meta_controller_batch[:, 2], meta_controller_batch[:, 3], meta_controller, discount)
-
-            # Update the meta controller
-            meta_controller.update(controller_batch[:, 0], controller_batch[:, 1], m_targets)
-            F += f
-
-            # Update the observation
-            observation = next_observation
-
-        # Store in the meta controller
-        d2.store(initial_observation, goal, F, next_observation)
-        if not done:
-            goal = meta_controller.epsGreedy(Goals, obervation)
-    meta_controller.anneal()
-    controller.anneal()
-env.close()
+#Window will also be difficult. The only time the window size won't be 1 though is
+#when an action results in us being IsInAir. So I may be able to play the same
+#subtraction game, I'll have to try visualizing it. Looks like taking difference
+#between current and last observation gives near perfect trace of where ALE is at.
+#so can just take a rough outline of the rectangle from where ALE starts the action
+#to where ALE ends the action.
