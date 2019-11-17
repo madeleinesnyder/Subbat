@@ -4,6 +4,7 @@ import time
 import numpy as np
 from utils import isInAir, getJumpOutcome
 from Action_Replay_Buffer import ActionReplayBuffer
+import matplotlib.pyplot as plt
 
 
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
@@ -16,8 +17,15 @@ env.seed(42)
 ARP = ActionReplayBuffer()
 Goals = []
 
+# from PIL import Image
+#
+# obs= env.reset()
+# obs[115:117,:,:] = np.ones((2, 1, 3))
+# img = Image.fromarray(obs, 'RGB')
+# img.show()
+
 num_random_actions = 6000
-for episode in range(500):
+for episode in range(10):
     observation = env.reset()
     total_reward = 0
     LastInAir = False
@@ -35,15 +43,22 @@ for episode in range(500):
         if jumping:
             jump_outcome = getJumpOutcome(env, original_lives)
             jumping = False
-            ARP.store(obs, action, jump_outcome)
+            ARP.store(obs, action, jump_outcome, env)
         if not jumping and not inAir:
-            ARP.store(obs, action, reward)
+            ARP.store(obs, action, reward, env)
         LastInAir = inAir
         last_action = action
 
     print("End of Random Action Sequence {0}".format(episode))
-    Goals = ARP.find_Goals()
-    # print(len(Goals))
+    subgoals = ARP.find_subgoals()
+    print(len(subgoals))
+
+#plot a heatmap
+obs = env.reset()
+plt.imshow(obs)
+for subgoal_location in subgoals:
+    plt.scatter(subgoal_location[0], subgoal_location[1], c = "yellow", alpha = 0.5, s = 10)
+plt.show()
 
 
 #timestep 905 doesn't realize jumping off teadmill and dying is -1 reward
