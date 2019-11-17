@@ -35,15 +35,15 @@ for episode in range(500):
         if jumping:
             jump_outcome = getJumpOutcome(env, original_lives)
             jumping = False
-            ARP.store(obs, action, jump_outcome)
+            ARP.store(obs, action, jump_outcome, env)
         if not jumping and not inAir:
-            ARP.store(obs, action, reward)
+            ARP.store(obs, action, reward,env)
         LastInAir = inAir
         last_action = action
 
     print("End of Random Action Sequence {0}".format(episode))
-    Goals = ARP.find_Goals()
-    # print(len(Goals))
+    Goals = ARP.find_subgoals()
+    print(len(Goals))
 
 
 #timestep 905 doesn't realize jumping off teadmill and dying is -1 reward

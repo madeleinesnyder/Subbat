@@ -14,32 +14,34 @@ class ActionReplayBuffer:
     def __init__(self,capacity = np.float("inf")):
         self.capacity = capacity
         self.memories = set()
-        #self.Goals = []
         self.ARP_dict = defaultdict(list)
         self.subgoal_locations = []
 
-    def store(self,arg1,arg2,arg3,env):
+    def store(self, obs , action , reward , env):
         '''
         Stores each state-action-reward sample from the environment
         If the capacity of the buffer is exceeded, delete the first sample
         '''
         # arg1 - state, arg2 - action, arg3 - reward.
         # Convert to a tuple to store in memories
-        obs = self.get_observation_coordinates(env,arg1)
-        memory = [obs, arg2, arg3]
+        obs = self.get_observation_coordinates(env,obs)
+        # If ALE is likely dead, return -1 -1 from get_observation_coordinates and don't store this.
+        if obs == (-1,-1):
+            return
+        memory = [obs, action, reward]
         memory = tuple(memory)
         # If this new memory is already in the set of the memories, don't put it in.
         self.memories.add(memory)
         # Eliminated because we can't index into a set
-        #if len(self.memories) > self.capacity:
-            #self.memories = self.memories[1:]
+        if len(self.memories) > self.capacity:
+            print("Change data structure to ordered dict")
+            self.memories = self.memories[1:]
 
     def find_subgoals(self):
         '''
         Find the states that corrospond to goals.
         '''
         if len(self.memories) < 1:
-            #return self.Goals
             return self.subgoal_locations
         for memory in self.memories:
             self.ARP_dict[memory[0]].append(memory[1:])
@@ -50,7 +52,7 @@ class ActionReplayBuffer:
                 self.subgoal_locations.append(key)
         return self.subgoal_locations
 
-    def attempt_action(self, env, action, obs):
+    def attempt_action(self, env, action):
         '''
         This function attempts different actions to get an xy location for ALE (4 and 5)
         '''
@@ -88,35 +90,21 @@ class ActionReplayBuffer:
 
     def get_observation_coordinates(self,env,observation):
         '''
-        How to find key?? TODO
         Get the xy location of the goal from the state
         Fix this unwrapping shit. first check 4 (left); then check 5 (down)
         '''
         obs = observation
         for action in [4,5,11]:
-            rgb_coords = self.attempt_action(env,action,obs)
+            rgb_coords = self.attempt_action(env,action)
             if np.sum(rgb_coords) > 0:
-                return rgb_coords
+                rgb_coords = rgb_coords
+                break
+        if (action == 11 and np.sum(rgb_coords) == 0):
+            return (-1,-1)
         nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
         [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
-        coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+        coords = (float(np.ceil(mean_x)),float(np.ceil(mean_y)))
         return coords
-
-
-    def get_goal_coordinates(self,env,observation):
-        '''
-        Get the xy location of the goal from the state
-        Fix this unwrapping shit. first check 4 (left); then check 5 (down)
-        '''
-        obs = observation
-        for action in [4,5,11]:
-            rgb_coords = self.attempt_action(env,action,obs)
-            if np.sum(rgb_coords) > 0:
-                return rgb_coords
-        nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
-        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
-        coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
-        self.subgoal_locations.append(coords)
 
     def at_subgoal(self,env,observation,goal):
         '''
