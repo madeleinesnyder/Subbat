@@ -18,14 +18,15 @@ class ActionReplayBuffer:
         self.ARP_dict = defaultdict(list)
         self.subgoal_locations = []
 
-    def store(self,arg1,arg2,arg3):
+    def store(self,arg1,arg2,arg3,env):
         '''
         Stores each state-action-reward sample from the environment
         If the capacity of the buffer is exceeded, delete the first sample
         '''
         # arg1 - state, arg2 - action, arg3 - reward.
         # Convert to a tuple to store in memories
-        memory = [arg1, arg2, arg3]
+        obs = self.get_observation_coordinates(env,arg1)
+        memory = [obs, arg2, arg3]
         memory = tuple(memory)
         # If this new memory is already in the set of the memories, don't put it in.
         self.memories.add(memory)
@@ -46,8 +47,7 @@ class ActionReplayBuffer:
         for key, value in self.ARP_dict.items():
             unique_arps = set(value)
             if len(unique_arps) > 1:
-                goalxy = # Get xy coordinates of ALE in this state. self.attempt_action? TODO
-                self.subgoal_locations.append(goalxy)
+                self.subgoal_locations.append(key)
         return self.subgoal_locations
 
     def attempt_action(self, env, action, obs):
