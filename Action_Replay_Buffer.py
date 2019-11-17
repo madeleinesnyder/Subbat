@@ -14,9 +14,9 @@ class ActionReplayBuffer:
     def __init__(self,capacity = np.float("inf")):
         self.capacity = capacity
         self.memories = set()
-        self.Goals = []
+        #self.Goals = []
         self.ARP_dict = defaultdict(list)
-        self.subgoal_locations = [] 
+        self.subgoal_locations = []
 
     def store(self,arg1,arg2,arg3):
         '''
@@ -29,23 +29,26 @@ class ActionReplayBuffer:
         memory = tuple(memory)
         # If this new memory is already in the set of the memories, don't put it in.
         self.memories.add(memory)
-        if len(self.memories) > self.capacity:
-            self.memories = self.memories[1:]
+        # Eliminated because we can't index into a set
+        #if len(self.memories) > self.capacity:
+            #self.memories = self.memories[1:]
 
-    def find_Goals(self):
+    def find_subgoals(self):
         '''
         Find the states that corrospond to goals.
         '''
         if len(self.memories) < 1:
-            return self.Goals
+            #return self.Goals
+            return self.subgoal_locations
         for memory in self.memories:
             self.ARP_dict[memory[0]].append(memory[1:])
 
         for key, value in self.ARP_dict.items():
             unique_arps = set(value)
             if len(unique_arps) > 1:
-                self.Goals.append(key)
-        return self.Goals
+                goalxy = # Get xy coordinates of ALE in this state. self.attempt_action? TODO
+                self.subgoal_locations.append(goalxy)
+        return self.subgoal_locations
 
     def attempt_action(self, env, action, obs):
         '''
@@ -57,7 +60,25 @@ class ActionReplayBuffer:
         for _ in range(2):
             observation, reward, done, info = env.step(test_action)
             test_observation, reward, done, info = env.step(test_action)
-        rgb_coords = test_observation-obs
+
+        # Black box things that move
+        #replace treadmill in picture
+        observation[135:142,59:101,:] = np.zeros((7,42,3))
+        test_observation[135:142,59:101,:] = np.zeros((7,42,3))
+
+        #replace header in picture
+        observation[:20,:,:] = np.zeros((20,160,3))
+        test_observation[:20,:,:] = np.zeros((20,160,3))
+
+        #replace skull in picture
+        observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+        test_observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+
+        #replace key in picture
+        observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+        test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+
+        rgb_coords = test_observation-observation
         if np.sum(rgb_coords) != 0:
             env.restore_full_state(clone_state)
             return rgb_coords
@@ -65,16 +86,29 @@ class ActionReplayBuffer:
             env.restore_full_state(clone_state)
             return np.zeros(1)
 
-
-    def get_Goal_xy(self,env,observation):
+    def get_observation_coordinates(self,env,observation):
         '''
         How to find key?? TODO
         Get the xy location of the goal from the state
         Fix this unwrapping shit. first check 4 (left); then check 5 (down)
         '''
         obs = observation
-        # Change this such that you have at least one action that will always work
-        # He might be on the ladder in which case jumping will yeild rgb_coords = 0
+        for action in [4,5,11]:
+            rgb_coords = self.attempt_action(env,action,obs)
+            if np.sum(rgb_coords) > 0:
+                return rgb_coords
+        nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
+        [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
+        coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+        return coords
+
+
+    def get_goal_coordinates(self,env,observation):
+        '''
+        Get the xy location of the goal from the state
+        Fix this unwrapping shit. first check 4 (left); then check 5 (down)
+        '''
+        obs = observation
         for action in [4,5,11]:
             rgb_coords = self.attempt_action(env,action,obs)
             if np.sum(rgb_coords) > 0:
@@ -112,7 +146,7 @@ class ActionReplayBuffer:
             subgoal_xy = convertToSubgoalCoordinates(sgs[i])
             self.subgoal_locations.append(subgoal_xy)
 
-    def random_Goal(self):
+    def get_random_goal(self):
         '''
         Get a random subgoal to initialize the exploration run in env.
         '''

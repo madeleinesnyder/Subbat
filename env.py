@@ -20,7 +20,7 @@ Initialize the environment and h-params (adjust later)
 random.seed(42)
 learning_rate = 2.5e-4
 num_episodes = 10000
-num_pre_training_episodes = 5000
+num_pre_training_episodes = 10
 discount = 0.99
 batch_size = 256
 
@@ -37,7 +37,7 @@ Initialize the replay buffers
 ARP = ActionReplayBuffer()
 d1 = ReplayMemory()
 d2 = ReplayMemory()
-Goals = ARP.find_Goals()
+Goals = ARP.find_subgoals() # this returns an array of the xy coordinates for each subgoal in memory
 
 '''
 Build the controller and meta-Controller
@@ -66,7 +66,7 @@ jumping_list = [1,10,11,12,14,15] # Get from Ryan
 for i in range(num_pre_training_episodes):
     print("episode {0}".format(i))
     observation = env.reset()
-    goalxy = ARP.random_Goal()
+    goalxy = ARP.get_random_goal() # returns xy coordiantes of random subgoal in memory
     done = False
     dead = False
     at_subgoal = False
@@ -90,8 +90,9 @@ for i in range(num_pre_training_episodes):
             # Store this reward from the cloned env simulation
             if (action in jumping_list) and (not inAir):
                 jumped_reward = getJumpOutcome(env,lives)
-                ARP.store(tuple(tuple(row[0]) for row in observation),action,jumped_reward)
-                ARP.get_Goal_xy(env,observation)
+                observation_xy = ARP.get_observation_coordinates(env,observation)
+                ARP.store(observation_xy,action,jumped_reward)
+                ARP.get_goal_coordinates(env,observation)
 
             # STEP THE ENV
             next_observation, f, done, next_lives = env.step(action)
@@ -99,7 +100,7 @@ for i in range(num_pre_training_episodes):
             # If he isn't in air, store the observation and the reward
             if not inAir:
                 ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
-                ARP.get_Goal_xy(env,observation)
+                ARP.get_goal_coordinates(env,observation)
             F += f
 
             # Check if ALE died during this env step.
@@ -131,7 +132,7 @@ for i in range(num_pre_training_episodes):
 
         d2.store(initial_observation, goal, F, next_observation)
         if not (done or dead):
-            goalxy = ARP.random_Goal()
+            goalxy = ARP.get_random_goal()
     controller.anneal()
 
 '''
@@ -139,32 +140,61 @@ Main h-DQN algorithm
 '''
 for i in range(num_episodes):
     observation = env.reset()
-    Goals = ARP.find_Goals()
+    Goals = ARP.find_subgoals()
     goal = meta_controller.epsGreedy(observation, Goals)
     done = False
     while not done:
         F = 0
         initial_observation = observation
         while not (done or observation == goal):
-            #action space is discrete on set {0,1,...,17}
+
+            # Convert the goalxy coordinates to a binary mask so the controller can deal with it
+            #goal = convertToBinaryMask(((goalxy[0]-5,goalxy[0]+5),(goalxy[1]-5,goalxy[1]+5)))
+
+            # Get an action from the controller
             action = controller.epsGreedy([observation, goal], env.action_space)
+
+            # Step the env.
             next_observation, f, done, info = env.step(action)
+
+            # Get reward from accomplishing subgoal. Should this be xy?
             r = intrinsic_reward(next_observation, goal)
 
+            # Store the obs,goal,action,r,etc for the controller in the buffer
             d1.store([initial_observation, goal], action, r, [next_observation, goal])
+
+            # Sample from the controller batch if there are enough samples
             controller_batch = d1.sample(batch_size)
+
+            # Get the targets for the controller
             c_targets = controller_targets(controller_batch[:, 2], controller_batch[:, 3], controller, discount)
+
+            # Update the controller.
             controller.update(controller_batch[:, 0], controller_batch[:, 1], c_targets)
 
+            # Check if ALE is in the air (falling or jumping)
             inAir = isInAir(env,next_observation)
-            if inAir == False:
-                ARP.store(next_observation,action,r,done)
 
+            # If ALE isn't in the air, store the observation and get the xy coordinates of the goal
+            if not inAir:
+                ARP.store(tuple(tuple(row[0]) for row in next_observation),action,f)
+                ARP.get_goal_coordinates(env,observation)
+            F += f
+
+            # Sample from the meta contrnoller if there is enough samples
             meta_controller_batch = d2.sample(batch_size)
+
+            # Get the meta controller targets
             m_targets = meta_controller_targets(meta_controller_batch[:, 2], meta_controller_batch[:, 3], meta_controller, discount)
+
+            # Update the meta controller
             meta_controller.update(controller_batch[:, 0], controller_batch[:, 1], m_targets)
             F += f
+
+            # Update the observation
             observation = next_observation
+
+        # Store in the meta controller
         d2.store(initial_observation, goal, F, next_observation)
         if not done:
             goal = meta_controller.epsGreedy(Goals, obervation)
