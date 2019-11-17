@@ -1,26 +1,19 @@
 import gym
-from gym.utils.play import play
+# from gym.utils.play import play
 import random
 from replay_memory import ReplayMemory
 from meta_controller import MetaController
 from controller import Controller
 import time
 import numpy as np
-import pickle
 
 #Useful imports for debugging
-import sys
-np.set_printoptions(threshold=sys.maxsize)
 from PIL import Image
 
 random.seed(42)
 
 d1 = ReplayMemory()
 d2 = ReplayMemory()
-
-infile = open("treadmill_spaces", 'rb')
-treadmill_spaces = pickle.load(infile)
-infile.close()
 
 #need to code in logic to end game at total reward of 400
 
@@ -59,11 +52,7 @@ infile.close()
 # env.close()
 
 
-def isInAir(env, original_observation):
-
-
-    #steady state it? Seems to work empirically quite well. I'll add in the treadmill
-    #logic and give it some more testing
+def isInAir(env, original_observation, action, last_action):
 
     test_action = 0
     clone_state = env.clone_full_state()
@@ -88,7 +77,7 @@ def isInAir(env, original_observation):
     observation[98:116,10:23,:] = np.zeros((18, 13, 3))
     test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
 
-    #add in key loic
+    #add in key logic
     key_test_observation = test_observation[23:45,53:67,:]
     key_original_observation = original_observation[23:45,53:67,:]
 
@@ -98,15 +87,10 @@ def isInAir(env, original_observation):
     if not np.any(test_observation - observation):
         return False
 
-    treadmill_window = original_observation[100:136,50:110,:]
-    # img = Image.fromarray(treadmill_window, 'RGB')
-    # img.show()
-    if str(treadmill_window) in treadmill_spaces:
+    treadmill_observation = original_observation[135:136,60:100,:]
+    valid_jumps = [1,10,11,12,14,15,16,17]
+    if np.any(treadmill_observation) and action not in valid_jumps and last_action not in valid_jumps:
         return False
-
-    # diff = test_observation - observation
-    # img = Image.fromarray(diff, 'RGB')
-    # img.show()
 
     return True
 
@@ -124,7 +108,7 @@ def getJumpOutcome(env, original_lives):
         if lives < original_lives:
             env.restore_full_state(clone_state)
             return -1
-        if not isInAir(env, obs):
+        if not isInAir(env, obs, action, action):
             obs, reward, done, info = env.step(action)
             lives = info['ale.lives']
             if lives < original_lives:
@@ -187,8 +171,8 @@ def getJumpOutcome(env, original_lives):
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
 # play(env)
 env.render()
-# for i_episode in range(1):
-#     observation = env.reset()
+for i_episode in range(1):
+    observation = env.reset()
     #jump right to the rope
     # actions = [11] + [0 for _ in range(60)]
     #jump to the upper right platform
@@ -209,38 +193,55 @@ env.render()
 #     # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
 #     # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)]
 #     #finish the room
-    # actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
-    # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
-    # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
-    # [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
-    # [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
-    # [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
-    # [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
+    actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+    [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
+    [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
+    [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
+    [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
+    [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
+    [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
 #
 #     #wouldn't mind making a more robust one
 #
-    # total_reward = 0
-    # LastInAir = False
-    # for t in range(len(actions)):
-    #     action = actions[t]
-    #     obs, reward, done, info = env.step(action)
-    #     original_lives = info["ale.lives"]
-    #     total_reward += reward
-    #     if total_reward == 400:
-    #         print("Congratulations!! You've reached the end of the first room :)")
-    #         break
-    #     env.render()
-    #     inAir = isInAir(env, obs)
-    #     jumping = LastInAir == False and inAir == True
-    #     if jumping:
-    #         jump_outcome = getJumpOutcome(env, original_lives)
-    #         print("jumping", jump_outcome)
-    #         jumping = False
-    #         time.sleep(3)
-    #     print(t, action, inAir, info["ale.lives"], reward)
-    #     LastInAir = inAir
-    #
-    #     time.sleep(0.1)
+    total_reward = 0
+    LastInAir = False
+    last_action = 0
+    for t in range(len(actions)):
+        action = actions[t]
+        obs, reward, done, info = env.step(action)
+        original_lives = info["ale.lives"]
+        total_reward += reward
+        if total_reward == 400:
+            print("Congratulations!! You've reached the end of the first room :)")
+            break
+        env.render()
+        inAir = isInAir(env, obs, action, last_action)
+        jumping = LastInAir == False and inAir == True
+        if jumping:
+            jump_outcome = getJumpOutcome(env, original_lives)
+            print("jumping", jump_outcome)
+            jumping = False
+            time.sleep(3)
+        print(t, action, inAir, info["ale.lives"], reward)
+        LastInAir = inAir
+        last_action = action
+        #
+        # if t > 70:
+        #     time.sleep(2)
+
+        # if t > 630 and t <= 645:
+            # time.sleep(3)
+        # if t == 635:
+        #     img = Image.fromarray(obs, 'RGB')
+        #     img.show()
+        #     obs = obs[135:136,60:100,:]
+        #     print(np.any(obs))
+        #     img = Image.fromarray(obs, 'RGB')
+        #     img.show()
+
+        #one is because of foot still in air after jumping
+
+        time.sleep(0.1)
 
 
 
@@ -255,40 +256,39 @@ env.render()
 #two times in a row?
 
 #code that creates the treadmill file for IsInAir. Only here for the record
-treadmill_spaces = set()
-ladder_actions = [5 for _ in range(32)]
-#get to the treadmill
-
-# end_actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
-# [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
-# [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
-# [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
-# [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
-# [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
-# [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
-actions = [5] + [3 for _ in range(49)] + [4 for _ in range(29)] + [3 for _ in range(87)] + [4 for _ in range(29)] + [3 for _ in range(87)] + [4 for _ in range(29)] + [3 for _ in range(87)]
-for _ in range(5):
-    env.reset()
-    for t in range(len(ladder_actions)):
-        action = ladder_actions[t]
-        observation, reward, done, info = env.step(action)
-        env.render()
-        # time.sleep(0.1)
-
-    for t in range(len(actions)):
-        env.render()
-        action = actions[t]
-
-        observation, reward, done, info = env.step(action)
-        observation = observation[117:136,50:110,:]
-
-        # if t == 10:
-        #     img = Image.fromarray(observation, 'RGB')
-        #     img.show()
-
-        treadmill_spaces.add(str(observation))
-        print(len(treadmill_spaces))
-        # time.sleep(0.05)
+# treadmill_spaces = set()
+# ladder_actions = [5 for _ in range(32)]
+# #get to the treadmill
+# env.reset()
+# for t in range(len(ladder_actions)):
+#     action = ladder_actions[t]
+#     observation, reward, done, info = env.step(action)
+#     env.render()
+#
+# # end_actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+# # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
+# # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
+# # [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
+# # [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
+# # [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
+# # [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
+# actions = [5] + [3 for _ in range(49)] + [4 for _ in range(29)] + [3 for _ in range(87)] + \
+# [4 for _ in range(29)] + [3 for _ in range(87)] + [4 for _ in range(29)] + [3 for _ in range(87)] + \
+# [0 for _ in range(75)] + [3 for _ in range(60)]
+# for t in range(len(actions)):
+#     env.render()
+#     action = actions[t]
+#
+#     observation, reward, done, info = env.step(action)
+#     observation = observation[117:136,50:110,:]
+#
+#     # if t == 10:
+#     #     img = Image.fromarray(observation, 'RGB')
+#     #     img.show()
+#
+#     treadmill_spaces.add(str(observation))
+#     print(len(treadmill_spaces))
+#     # time.sleep(0.05)
 
 # env.reset()
 # for t in range(len(end_actions)):
