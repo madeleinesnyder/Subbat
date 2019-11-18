@@ -89,8 +89,8 @@ for i in range(num_pre_training_episodes):
             # If Ale jumped, and is not yet airborn, calculate the rollout's reward from that jump.
             # Store this reward from the cloned env simulation
             if (action in jumping_list) and (not inAir):
-                jumped_reward = getJumpOutcome(env,lives)
-                ARP.store(tuple(tuple(row[0]) for row in observation),action,jumped_reward)
+                jumped_reward = getJumpOutcome(env, lives)
+                ARP.store(tuple(tuple(row[0]) for row in observation), action, jumped_reward)
                 ARP.get_Goal_xy(env,observation)
 
             # STEP THE ENV
@@ -111,7 +111,7 @@ for i in range(num_pre_training_episodes):
             # Record the reward if reached the subgoal.
             r = intrinsic_reward(next_observation, goalxy, ARP)
 
-            # Store the obs, goal, action, reward, etc. in the controller buffer
+            # Store the state action reward goal stuff
             d1.store(np.concatenate([initial_observation, goal], axis = 0), action, r, np.concatenate([next_observation, goal], axis = 0))
 
             # Sample a batch from the buffer if there's enough in the buffer
