@@ -2,7 +2,6 @@ import numpy as np
 
 def isInAir(env, original_observation):
 
-
     #steady state it? Seems to work empirically quite well. I'll add in the treadmill
     #logic and give it some more testing
 
@@ -29,7 +28,7 @@ def isInAir(env, original_observation):
     #replace key in picture
     observation[98:116,10:23,:] = np.zeros((18, 13, 3))
     test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
-    
+
 
     if not np.any(test_observation - observation):
         return False
