@@ -12,7 +12,7 @@ class ActionReplayBuffer:
     '''
 
     def __init__(self,capacity = np.float("inf")):
-        self.k = 2
+        self.k = 2.5
         self.capacity = capacity
         self.memories = set()
         self.ARP_dict = defaultdict(list)
@@ -25,11 +25,11 @@ class ActionReplayBuffer:
         '''
         # arg1 - state, arg2 - action, arg3 - reward.
         # Convert to a tuple to store in memories
-        obs = self.get_observation_coordinates(env,obs)
+        obs, action_used = self.get_observation_coordinates(env,obs)
         # If ALE is likely dead, return -1 -1 from get_observation_coordinates and don't store this.
         if obs == (-1,-1):
             return
-        memory = [obs, action, reward]
+        memory = [obs, action, reward, action_used]
         memory = tuple(memory)
         # If this new memory is already in the set of the memories, don't put it in.
         self.memories.add(memory)
@@ -50,6 +50,7 @@ class ActionReplayBuffer:
         for key, values in self.ARP_dict.items():
             unique_arps = set([value[1] for value in values])
             if (len(unique_arps) > 1) and not self.near_any_subgoals(key):
+                print(key, values)
                 self.subgoal_locations.append(key)
         return self.subgoal_locations
 
@@ -89,7 +90,7 @@ class ActionReplayBuffer:
             env.restore_full_state(clone_state)
             return np.zeros(1)
 
-    def get_observation_coordinates(self,env,observation):
+    def get_observation_coordinates(self, env, observation):
         '''
         Get the xy location of the goal from the state
         Fix this unwrapping shit. first check 4 (left); then check 5 (down)
@@ -98,15 +99,15 @@ class ActionReplayBuffer:
         for action in [4,5,11]:
             rgb_coords = self.attempt_action(env,action)
             if np.sum(rgb_coords) > 0:
+                action_used = action
                 rgb_coords = rgb_coords
                 break
-        if (action == 11 and np.sum(rgb_coords) == 0):
+        if (action == 11 and np.sum(rgb_coords) == 0): #note to change to 11 later
             return (-1,-1)
         nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
         [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
         coords = (float(mean_x),float(mean_y))
-        print(coords)
-        return coords
+        return coords, action_used
 
     def near_any_subgoals(self, location):
         for subgoal_location in self.subgoal_locations:
