@@ -26,7 +26,7 @@ Goals = []
 # img.show()
 
 num_random_actions = 6000
-for episode in range(10):
+for episode in range(5):
     observation = env.reset()
     total_reward = 0
     LastInAir = False
@@ -46,6 +46,7 @@ for episode in range(10):
             jumping = False
             ARP.store(obs, action, jump_outcome, env)
         if not jumping and not inAir:
+            print(done)
             ARP.store(obs, action, reward, env)
         LastInAir = inAir
         last_action = action
