@@ -1,5 +1,5 @@
 import gym
-# from gym.utils.play import play
+from gym.utils.play import play
 import random
 from replay_memory import ReplayMemory
 from meta_controller import MetaController
@@ -87,7 +87,7 @@ def isInAir(env, original_observation, action, last_action):
     if not np.any(test_observation - observation):
         return False
 
-    treadmill_observation = original_observation[135:136,60:100,:]
+    treadmill_observation = original_observation[135:136,63:100,:]
     valid_jumps = [1,10,11,12,14,15,16,17]
     if np.any(treadmill_observation) and action not in valid_jumps and last_action not in valid_jumps:
         return False
@@ -99,8 +99,11 @@ def getJumpOutcome(env, original_lives):
 
     action = 0
     clone_state = env.clone_full_state()
+    obs, reward, done, info = env.step(action)
     while True:
         obs, reward, done, info = env.step(action)
+        inAir = isInAir(env, obs, action, action)
+        print("stepping", inAir)
         lives = info['ale.lives']
         if reward != 0:
             env.restore_full_state(clone_state)
@@ -108,9 +111,10 @@ def getJumpOutcome(env, original_lives):
         if lives < original_lives:
             env.restore_full_state(clone_state)
             return -1
-        if not isInAir(env, obs, action, action):
+        if not inAir:
             obs, reward, done, info = env.step(action)
             lives = info['ale.lives']
+            print(lives, original_lives)
             if lives < original_lives:
                 env.restore_full_state(clone_state)
                 return -1
@@ -120,7 +124,6 @@ def getJumpOutcome(env, original_lives):
     #decremented at same time isInAir is false. For falling to death case,
     #isInAir if False one frame before self.lives is decremented
 
-    return
 
 # def canJump(original_observation):
 #
@@ -169,20 +172,24 @@ def getJumpOutcome(env, original_lives):
 # https://github.com/openai/gym/blob/master/gym/envs/atari/atari_env.py
 
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
-# play(env)
-env.render()
-for i_episode in range(1):
-    observation = env.reset()
-    #jump right to the rope
-    # actions = [11] + [0 for _ in range(60)]
-    #jump to the upper right platform
-    # actions = [3,3,3,3,3,3,3,3,3,3,3,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-    #go down the treadmill and walk to the rightmost edge
-    #actions = [5 for _ in range(34)] + [3 for _ in range(45)]
-    #go down the treadmill and walk left and die
+play(env)
+# env.render()
+# for i_episode in range(1):
+#     observation = env.reset()
+#     #jump right to the rope
+#     # actions = [11] + [0 for _ in range(60)]
+#     #jump to the upper right platform
+#     # actions = [3,3,3,3,3,3,3,3,3,3,3,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+#     #go down the treadmill and walk to the rightmost edge
+#     #actions = [5 for _ in range(34)] + [3 for _ in range(45)]
+#     #go down the treadmill and walk left and die
 #
 #     #jump left and die
-    # actions = [0,0,0,0,0,0,12] + [0 for _ in range(115)]
+#     # actions = [0,0,0,0,0,0,12] + [0 for _ in range(115)]
+#     #walk left and die
+#     # actions = [4 for _ in range(50)]
+#     #walk right and die
+#     # actions = [3 for _ in range(50)]
 #     #testing the vertical jump issue
 #     # actions = [5,5,5] + [1,5] * 50
 #     #get to and jump over the skull
@@ -193,55 +200,64 @@ for i_episode in range(1):
 #     # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
 #     # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)]
 #     #finish the room
-    actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
-    [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
-    [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
-    [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
-    [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
-    [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
-    [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
+#     # actions = [5 for _ in range(34)] + [3 for _ in range(45)] + [11] + [0 for _ in range(20)] + \
+#     # [11] + [0 for _ in range(40)] + [5 for _ in range(40)] + [4 for _ in range(45)] + [12] + [0 for _ in range(25)] + \
+#     # [4 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [1] + [0 for _ in range(25)] + \
+#     # [3 for _ in range(4)] + [5 for _ in range(40)] + [3 for _ in range(45)] + [11] + [0 for _ in range(30)] + \
+#     # [3 for _ in range(50)] + [2 for _ in range(40)] + [4 for _ in range(5)] + [12] + [0 for _ in range(20)] + \
+#     # [12] + [0 for _ in range(30)] + [4 for _ in range(7)] + [2 for _ in range(40)] + [4 for _ in range(10)] + \
+#     # [12] + [0 for _ in range(30)] + [4 for _ in range(35)]
 #
-#     #wouldn't mind making a more robust one
+# #     #wouldn't mind making a more robust one
 #
-    total_reward = 0
-    LastInAir = False
-    last_action = 0
-    for t in range(len(actions)):
-        action = actions[t]
-        obs, reward, done, info = env.step(action)
-        original_lives = info["ale.lives"]
-        total_reward += reward
-        if total_reward == 400:
-            print("Congratulations!! You've reached the end of the first room :)")
-            break
-        env.render()
-        inAir = isInAir(env, obs, action, last_action)
-        jumping = LastInAir == False and inAir == True
-        if jumping:
-            jump_outcome = getJumpOutcome(env, original_lives)
-            print("jumping", jump_outcome)
-            jumping = False
-            time.sleep(3)
-        print(t, action, inAir, info["ale.lives"], reward)
-        LastInAir = inAir
-        last_action = action
-        #
-        # if t > 70:
-        #     time.sleep(2)
-
-        # if t > 630 and t <= 645:
-            # time.sleep(3)
-        # if t == 635:
-        #     img = Image.fromarray(obs, 'RGB')
-        #     img.show()
-        #     obs = obs[135:136,60:100,:]
-        #     print(np.any(obs))
-        #     img = Image.fromarray(obs, 'RGB')
-        #     img.show()
-
-        #one is because of foot still in air after jumping
-
-        time.sleep(0.1)
+#     #jump left off treadmill and die
+#     # actions = [5 for _ in range(34)] + [4 for _ in range(3)] + [12] +  [0 for _  in range(50)]
+#     #walk left off treadmill and die
+#     # actions = [5 for _ in range(34)] + [4 for _ in range(50)]
+#     #walk right off treadmill and die
+#     actions = [5 for _ in range(34)] + [3 for _ in range(80)] #this just won't work with the given logic, but should be fine
+#     #fall off rope and die
+#     # actions = [11] + [0 for _ in range(60)] + [5 for _ in range(50)]
+#
+#     total_reward = 0
+#     LastInAir = False
+#     last_action = 0
+#     for t in range(len(actions)):
+#         action = actions[t]
+#         obs, reward, done, info = env.step(action)
+#         original_lives = info["ale.lives"]
+#         total_reward += reward
+#         if total_reward == 400:
+#             print("Congratulations!! You've reached the end of the first room :)")
+#             break
+#         env.render()
+#         inAir = isInAir(env, obs, action, last_action)
+#         jumping = LastInAir == False and inAir == True
+#         if jumping:
+#             jump_outcome = getJumpOutcome(env, original_lives)
+#             print("jumping", jump_outcome)
+#             jumping = False
+#             time.sleep(3)
+#         print(t, action, inAir, info["ale.lives"], reward)
+#         LastInAir = inAir
+#         last_action = action
+#         #
+#         # if t > 70:
+#         #     time.sleep(2)
+#
+#         # if t > 630 and t <= 645:
+#             # time.sleep(3)
+#         # if t == 635:
+#         #     img = Image.fromarray(obs, 'RGB')
+#         #     img.show()
+#         #     obs = obs[135:136,60:100,:]
+#         #     print(np.any(obs))
+#         #     img = Image.fromarray(obs, 'RGB')
+#         #     img.show()
+#
+#         #one is because of foot still in air after jumping
+#
+#         time.sleep(0.1)
 
 
 
