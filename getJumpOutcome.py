@@ -15,13 +15,13 @@ def getJumpOutcome(env, original_lives):
             return 1
         if lives < original_lives:
             env.restore_full_state(clone_state)
-            return -1
+            return -100
         if not isInAir(env, obs):
             obs, reward, done, info = env.step(action)
             lives = info['ale.lives']
             if lives < original_lives:
                 env.restore_full_state(clone_state)
-                return -1
+                return -100
             env.restore_full_state(clone_state)
             return 0
     #Key reward is gained while isInAir is True. For skull case, self.lives

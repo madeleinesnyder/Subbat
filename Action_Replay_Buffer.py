@@ -51,7 +51,7 @@ class ActionReplayBuffer:
         for key, values in self.ARP_dict.items():
             unique_arps = set([value[1] for value in values])
             if (len(unique_arps) > 1) and not self.near_any_subgoals(key):
-                print(key, values)
+                #print(key, values)
                 self.subgoal_locations.append(key)
         #pdb.set_trace()
         return self.subgoal_locations
@@ -109,8 +109,8 @@ class ActionReplayBuffer:
         nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
         [mean_x,mean_y] = [np.ceil(np.mean(nonzero_coords[0])),np.ceil(np.mean(nonzero_coords[1]))]
         #print("action "+str(action))
-        #print("Mean x coord " +str(mean_x))
-        #print("Mean y coord " +str(mean_y))
+        #print("Mean x coord " +str(mean_y))
+        #print("Mean y coord " +str(mean_x))
         coords = (float(mean_x),float(mean_y))
         return coords, action_used
 

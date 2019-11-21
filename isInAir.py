@@ -29,7 +29,6 @@ def isInAir(env, original_observation):
     observation[98:116,10:23,:] = np.zeros((18, 13, 3))
     test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
 
-
     if not np.any(test_observation - observation):
         return False
 

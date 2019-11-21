@@ -26,8 +26,9 @@ Goals = []
 #     plt.show()
 #     print("Done")
 
-def map_actions_so_far(subgoals):
-    obs = env.reset()
+def map_actions_so_far(env,subgoals):
+    env = env.unwrapped
+    clone_state = env.clone_full_state()
     plt.imshow(obs)
     for subgoal_location in subgoals:
         if subgoal_location == -1:
@@ -35,15 +36,14 @@ def map_actions_so_far(subgoals):
         else:
             plt.scatter(subgoal_location[1], subgoal_location[0], c = "yellow", alpha = 0.5, s = 10)
     plt.show()
-    pdb.set_trace()
-    print("Done")
+    env.restore_full_state(clone_state)
 
 # all_actions = [[np.random.randint(0,18) for _ in range(6000)] for _ in range(10)]
 
 # all_actions = [[4,4,4,1] + [0 for _ in range(5595)] for _ in range(10)]
 
 num_random_actions = 6000
-for episode in range(100):
+for episode in range(1000):
     oc = []
     observation = env.reset()
     total_reward = 0
@@ -65,15 +65,18 @@ for episode in range(100):
             observed_coords,rew = ARP.store(obs, action, jump_outcome, env)
             #oc.append(observed_coords)
             #env.render()
-            #time.sleep(.5)
+            #time.sleep(.1)
         if (not jumping) and (not inAir):
             #need logic to override reward if die by walking, aka skull
             reward = reward if lives == 6 else -1
-            ARP.store(obs, action, reward, env)
+            observed_coords,rew = ARP.store(obs, action, reward, env)
+            #oc.append(observed_coords)
+            #env.render()
+            #time.sleep(.1)
         LastInAir = inAir
         last_action = action
 
-    #map_actions_so_far(oc)
+    #map_actions_so_far(env,oc)
     print("End of Random Action Sequence {0}".format(episode))
     subgoals = ARP.find_subgoals()
     #map_subgoals_so_far(subgoals)
@@ -91,10 +94,12 @@ for episode in range(100):
 
 #plot a heatmap
 obs = env.reset()
-pdb.set_trace()
 plt.imshow(obs)
-for subgoal_location in subgoals:
-    plt.scatter(subgoal_location[1], subgoal_location[0], c = "yellow", alpha = 0.5, s = 10)
-plt.show()
 pdb.set_trace()
+for subgoal_location in subgoals:
+    if str(type(subgoal_location))[-5:-2] == 'int':
+        continue
+    else:
+        plt.scatter(subgoal_location[1], subgoal_location[0], c = "yellow", alpha = 0.5, s = 10)
+plt.show()
 print("Done")

@@ -26,7 +26,7 @@ Goals = []
 # img.show()
 
 num_random_actions = 6000
-for episode in range(5):
+for episode in range(50):
     observation = env.reset()
     total_reward = 0
     LastInAir = False
