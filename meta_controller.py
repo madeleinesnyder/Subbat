@@ -28,7 +28,7 @@ class MetaController:
             indx = np.random.randint(0, len(goals))
             return goals[indx]
         else:
-            return self.get_goal(observation)
+            return np.squeeze(self.get_goal(observation))
 
     def build_graph(self, input_placeholder, output_size):
         # input should be observations (images)

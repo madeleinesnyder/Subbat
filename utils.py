@@ -32,6 +32,24 @@ def action_difference_of_frames(env, action, obs):
     for _ in range(2):
         observation, reward, done, info = env.step(test_action)
         test_observation, reward, done, info = env.step(test_action)
+
+    # Black box things that move
+    #replace treadmill in picture
+    observation[135:142,59:101,:] = np.zeros((7,42,3))
+    test_observation[135:142,59:101,:] = np.zeros((7,42,3))
+
+    #replace header in picture
+    observation[:20,:,:] = np.zeros((20,160,3))
+    test_observation[:20,:,:] = np.zeros((20,160,3))
+
+    #replace skull in picture
+    observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+    test_observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+
+    #replace key in picture
+    observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+    test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+
     rgb_coords = test_observation-obs
     if np.sum(rgb_coords) != 0:
         env.restore_full_state(clone_state)

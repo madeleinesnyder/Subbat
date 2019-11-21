@@ -21,9 +21,9 @@ Initialize the environment and h-params (adjust later)
 random.seed(42)
 learning_rate = 2.5e-4
 num_episodes = 20
-num_pre_training_episodes = 5
+num_pre_training_episodes = 100
 discount = 0.99
-batch_size = 256
+batch_size = 128
 
 '''
 Make the Gym environment and open a tensorflow session
@@ -35,17 +35,18 @@ tf.global_variables_initializer().run(session=sess)
 '''
 Initialize the replay buffers
 '''
-d1 = ReplayMemory(name = "controller", write_capacity = 20)
-d2 = ReplayMemory(name = "metacontroller", write_capacity = 20)
+
+d1 = ReplayMemory(name = "controller", buffer_capacity = 10, storage_capacity = 2048)
+d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 10, storage_capacity = 2048)
 
 '''
 Initialize subgoals 
 '''
 goals_xy = np.load("subgoals.npy")
-#goals = {}
-#for i in range(len(goals_xy)):
-#    goals[i] = goals_xy[i]
-goals = {0: goals_xy[0]}
+goals = {}
+for i in range(len(goals_xy)):
+    goals[i] = goals_xy[i]
+#goals = {0: goals_xy[0]}
 goal_dim = len(goals)
 
 '''
@@ -82,7 +83,7 @@ for i in range(num_pre_training_episodes):
         iteration = 0
         while not (done or at_subgoal or dead):
             if iteration % 10 == 0:
-                print("iteration {0} of episode {1}; ALE lives {2}; controller epsilon {3}".format(iteration, i, lives, controller.epsilon))
+                print("iteration {0} of episode {1}; controller epsilon {2}".format(iteration, i, controller.epsilon))
 
             # Get an action from the controller.
             observation_goal = np.concatenate([observation, goal_mask], axis = 0)
@@ -107,7 +108,7 @@ for i in range(num_pre_training_episodes):
                 r = 0
 
             # Store the obs, goal, action, reward, etc. in the controller buffer
-            d1.store(np.concatenate([observation, goal_mask], axis = 0), action, r, np.concatenate([next_observation, goal_mask], axis = 0))
+            d1.store([observation, goal_xy, action, r, next_observation])
 
             # Sample a batch from the buffer if there's enough in the buffer
             controller_batch = d1.sample(batch_size)
@@ -124,12 +125,19 @@ for i in range(num_pre_training_episodes):
             # Update the observation
             observation = next_observation
             iteration += 1
-        #d2.store(initial_observation, goal_idx, F, next_observation)
+
+            # stuck
+            if iteration % 500 == 0:
+                dead = True
+
+        d2.store([initial_observation, goal_idx, F, next_observation])
         if not (done or dead):
             goal_idx = random_goal_idx(goal_dim)
             goal_xy = goals[goal_idx]
             at_subgoal = False 
     controller.anneal()
+
+
     
 env.close()
 
