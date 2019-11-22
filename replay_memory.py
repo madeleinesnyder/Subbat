@@ -10,7 +10,6 @@ class ReplayMemory:
         self.buffer_capacity = buffer_capacity
         self.storage_capacity = storage_capacity
         self.buffer_counter = 0
-        self.storage_counter = 0
         self.name = name
         self.memories = []
         self.obs_shape = [210, 160, 3]
@@ -18,15 +17,31 @@ class ReplayMemory:
         if not os.path.exists("replay_buffer"):
             os.makedirs("replay_buffer")
 
-        with h5py.File("replay_buffer/" + self.name + ".hdf5", "w") as f:
-            f.create_dataset("obs_t", [0] + self.obs_shape, maxshape = [None] + self.obs_shape)
-            f.create_dataset("reward", (0,), maxshape = [None,])
-            f.create_dataset("obs_tp1", [0] + self.obs_shape, maxshape = [None] + self.obs_shape)
-            if self.name == "controller":
-                f.create_dataset("goal_xy", [0, 2], maxshape = [None, 2])
-                f.create_dataset("action", (0,), maxshape = [None,])
-            elif self.name == "metacontroller":
-                f.create_dataset("goal_idx", (0,), maxshape = [None,])
+        if os.path.exists("replay_buffer/" + self.name + ".hdf5"):
+            with h5py.File("replay_buffer/" + self.name + ".hdf5", "r") as f:
+                if self.name == "controller":
+                    self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
+                    self.memories.append(np.array(f['goal_xy'][-self.buffer_capacity:], dtype = np.uint8).tolist())
+
+                    self.memories.append(np.array(f['action'][-self.buffer_capacity:], dtype = np.uint8).tolist())
+                    self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
+                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
+                elif self.name == "metacontroller":
+                    self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
+                    self.memories.append(np.array(f['goal_idx'][-self.buffer_capacity:], dtype = np.uint8).tolist())
+                    self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
+                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
+
+        else:
+            with h5py.File("replay_buffer/" + self.name + ".hdf5", "w") as f:
+                f.create_dataset("obs_t", [0] + self.obs_shape, maxshape = [None] + self.obs_shape)
+                f.create_dataset("reward", (0,), maxshape = [None,])
+                f.create_dataset("obs_tp1", [0] + self.obs_shape, maxshape = [None] + self.obs_shape)
+                if self.name == "controller":
+                    f.create_dataset("goal_xy", [0, 2], maxshape = [None, 2])
+                    f.create_dataset("action", (0,), maxshape = [None,])
+                elif self.name == "metacontroller":
+                    f.create_dataset("goal_idx", (0,), maxshape = [None,])
                 
     def store(self, args):
         # Input:
