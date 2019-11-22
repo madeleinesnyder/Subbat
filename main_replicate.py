@@ -30,7 +30,7 @@ batch_size = 128
 Make the Gym environment and open a tensorflow session
 '''
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
-sess = tf.Session()
+sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 tf.global_variables_initializer().run(session=sess)
 
 '''
