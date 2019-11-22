@@ -16,47 +16,54 @@ def achieved_subgoal(env, observation, goal_xy):
         return False
 
 def get_ALE_coord(env, observation):
+    obs = observation
     for action in [4,5,11]:
-        location_ale = action_difference_of_frames(env,action,observation)
-        if int(np.sum(location_ale)) > 0:
+        rgb_coords = action_difference_of_frames(env,action,obs)
+        if np.sum(rgb_coords) > 0:
+            action_used = action
+            rgb_coords = rgb_coords
             break
-    nonzero_coords = np.where(location_ale[:,:,0] != 0)
-    [mean_x,mean_y] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
-    coords = (int(np.ceil(mean_x)),int(np.ceil(mean_y)))
+    if (action == 11 and np.sum(rgb_coords) == 0): #note to change to 11 later
+        return (-1,-1)
+    nonzero_coords = np.where(rgb_coords[:,:,0] != 0)
+    [mean_y, mean_x] = [np.mean(nonzero_coords[0]),np.mean(nonzero_coords[1])]
+    coords = (float(mean_x),float(mean_y))
     return coords
 
 def action_difference_of_frames(env, action, obs):
+    observation = obs
     env = env.unwrapped
     clone_state = env.clone_full_state()
     test_action = action
-    for _ in range(2):
-        observation, reward, done, info = env.step(test_action)
-        test_observation, reward, done, info = env.step(test_action)
+    for _ in range(3):
+        next_observation, reward, done, info = env.step(test_action)
 
-    # Black box things that move
-    #replace treadmill in picture
-    observation[135:142,59:101,:] = np.zeros((7,42,3))
-    test_observation[135:142,59:101,:] = np.zeros((7,42,3))
+        # Black box things that move
+        #replace treadmill in picture
+        observation[135:142,59:101,:] = np.zeros((7,42,3))
+        next_observation[135:142,59:101,:] = np.zeros((7,42,3))
 
-    #replace header in picture
-    observation[:20,:,:] = np.zeros((20,160,3))
-    test_observation[:20,:,:] = np.zeros((20,160,3))
+        #replace header in picture
+        observation[:20,:,:] = np.zeros((20,160,3))
+        next_observation[:20,:,:] = np.zeros((20,160,3))
 
-    #replace skull in picture
-    observation[165:180,52:114,:] = np.zeros((15, 62, 3))
-    test_observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+        #replace skull in picture
+        observation[165:180,52:114,:] = np.zeros((15, 62, 3))
+        next_observation[165:180,52:114,:] = np.zeros((15, 62, 3))
 
-    #replace key in picture
-    observation[98:116,10:23,:] = np.zeros((18, 13, 3))
-    test_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+        #replace key in picture
+        observation[98:116,10:23,:] = np.zeros((18, 13, 3))
+        next_observation[98:116,10:23,:] = np.zeros((18, 13, 3))
 
-    rgb_coords = test_observation-obs
-    if np.sum(rgb_coords) != 0:
-        env.restore_full_state(clone_state)
-        return rgb_coords
-    else:
-        env.restore_full_state(clone_state)
-        return np.zeros(1)
+        rgb_coords = next_observation-observation
+        if np.sum(rgb_coords) != 0:
+            env.restore_full_state(clone_state)
+            return rgb_coords
+
+        observation = next_observation
+
+    env.restore_full_state(clone_state)
+    return np.zeros(1)
 
 def controller_targets(rewards, next_observations, controller, discount):
     #next_observations = np.array([obs[0] for obs in next_observations])

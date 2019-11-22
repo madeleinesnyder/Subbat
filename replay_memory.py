@@ -22,7 +22,6 @@ class ReplayMemory:
                 if self.name == "controller":
                     self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
                     self.memories.append(np.array(f['goal_xy'][-self.buffer_capacity:], dtype = np.uint8).tolist())
-
                     self.memories.append(np.array(f['action'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
                     self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
