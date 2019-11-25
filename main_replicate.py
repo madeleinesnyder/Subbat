@@ -83,7 +83,6 @@ for i in range(num_pre_training_episodes):
     lives = 6
     next_lives = 6
     goal_xy = goals[goal_idx]
-    print(goal_xy)
     goal_mask = convertToBinaryMask([(goal_xy[0] - 5, goal_xy[1] - 5),(goal_xy[0] + 5, goal_xy[1] + 5)])
     controller_epsGreedy_time = 0
     step_env_time = 0
@@ -124,11 +123,7 @@ for i in range(num_pre_training_episodes):
             at_subgoal = achieved_subgoal(env, next_observation, goal_xy)
             if at_subgoal:
                 print("subgoal achieved at iteration {0} of episode {1}".format(iteration, i))
-                print("subgoal was: ", goals[goal_idx])
-                goal_idx = random_goal_idx(goal_dim)
-                print("new subgoal is: ", goals[goal_idx])
                 r = 1
-                #I realized this logic is wrong I think
             else:
                 r = 0
 
@@ -168,9 +163,11 @@ for i in range(num_pre_training_episodes):
                 dead = True
 
         d2.store([initial_observation, goal_idx, F, next_observation])
-        if not (done or dead):
+        if not (done or dead) and at_subgoal:
+            print("subgoal was: ", goals[goal_idx])
             goal_idx = random_goal_idx(goal_dim)
             goal_xy = goals[goal_idx]
+            print("new subgoal is: ", goal_xy)
             at_subgoal = False 
     controller.anneal()
     runtimeDf.loc[i] = [controller_epsGreedy_time, step_env_time, d1_store_time, d1_sample_time, controller_targets_time,
