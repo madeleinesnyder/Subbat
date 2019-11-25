@@ -21,7 +21,7 @@ Initialize the environment and h-params (adjust later)
 random.seed(42)
 learning_rate = 2.5e-4
 num_episodes = 20
-num_pre_training_episodes = 100
+num_pre_training_episodes = 500
 discount = 0.99
 batch_size = 128
 
@@ -40,7 +40,7 @@ d1 = ReplayMemory(name = "controller", buffer_capacity = 10, storage_capacity = 
 d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 10, storage_capacity = 2048)
 
 '''
-Initialize subgoals 
+Initialize subgoals
 '''
 goals_xy = np.load("subgoals.npy")
 goals = {}
@@ -134,10 +134,9 @@ for i in range(num_pre_training_episodes):
         if not (done or dead):
             goal_idx = random_goal_idx(goal_dim)
             goal_xy = goals[goal_idx]
-            at_subgoal = False 
+            at_subgoal = False
     controller.anneal()
 
 
-    
-env.close()
 
+env.close()

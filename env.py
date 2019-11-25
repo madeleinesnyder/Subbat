@@ -9,9 +9,7 @@ import time
 import numpy as np
 import pickle
 from Action_Replay_Buffer import ActionReplayBuffer
-from isInAir import *
 from utils import *
-from getJumpOutcome import *
 import pdb
 
 '''

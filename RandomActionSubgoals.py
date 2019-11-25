@@ -5,7 +5,6 @@ import numpy as np
 from utils import isInAir, getJumpOutcome
 from Action_Replay_Buffer import ActionReplayBuffer
 import matplotlib.pyplot as plt
-import pdb
 
 
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
@@ -18,68 +17,59 @@ env.seed(42)
 ARP = ActionReplayBuffer()
 Goals = []
 
-# def map_subgoals_so_far(subgoals):
-#     obs = env.reset()
-#     plt.imshow(obs)
-#     for subgoal_location in oc:
-#         plt.scatter(subgoal_location[0], subgoal_location[1], c = "yellow", alpha = 0.5, s = 10)
-#     plt.show()
-#     print("Done")
+num_episodes = 500
+num_random_actions = 800
 
-def map_actions_so_far(env,subgoals):
-    env = env.unwrapped
-    clone_state = env.clone_full_state()
-    plt.imshow(obs)
-    for subgoal_location in subgoals:
-        if subgoal_location == -1:
-            continue
-        else:
-            plt.scatter(subgoal_location[1], subgoal_location[0], c = "yellow", alpha = 0.5, s = 10)
-    plt.show()
-    env.restore_full_state(clone_state)
+all_actions = [[np.random.randint(0,18) for _ in range(num_random_actions)] for _ in range(num_episodes)]
 
-# all_actions = [[np.random.randint(0,18) for _ in range(6000)] for _ in range(10)]
-
-# all_actions = [[4,4,4,1] + [0 for _ in range(5595)] for _ in range(10)]
-
-num_random_actions = 6000
-for episode in range(1000):
-    oc = []
+for episode in range(num_episodes):
     observation = env.reset()
     total_reward = 0
     LastInAir = False
     last_action = 0
     for t in range(num_random_actions):
-        action = env.action_space.sample()
+        action = all_actions[episode][t]
         obs, reward, done, info = env.step(action)
         lives = info["ale.lives"]
         total_reward += reward
         if total_reward == 400:
             print("Congratulations!! You've reached the end of the first room :)")
             break
+
+
+        # if episode == 17 and (t > 1485 or t < 1510):
+        #     env.render()
+        #     time.sleep(0.5)
+        #
+        # if episode == 43 and (t > 1515 or t < 1545):
+        #     env.render()
+        #     time.sleep(0.5)
+        #
+        # if episode == 74 and (t > 1095 or t < 1120):
+        #     env.render()
+        #     time.sleep(0.5)
+
+
+
         inAir = isInAir(env, obs, action, last_action)
         jumping = LastInAir == False and inAir == True
         if jumping:
             jump_outcome = getJumpOutcome(env, lives)
             jumping = False
-            observed_coords,rew = ARP.store(obs, action, jump_outcome, env)
-            #oc.append(observed_coords)
-            #env.render()
-            #time.sleep(.1)
+            ARP.store(obs, action, jump_outcome, env,t)
         if (not jumping) and (not inAir):
             #need logic to override reward if die by walking, aka skull
-            reward = reward if lives == 6 else -1
-            observed_coords,rew = ARP.store(obs, action, reward, env)
-            #oc.append(observed_coords)
-            #env.render()
-            #time.sleep(.1)
+            # reward = reward if lives == 6 else -1
+            ARP.store(obs, action, reward, env,t)
         LastInAir = inAir
         last_action = action
 
-    #map_actions_so_far(env,oc)
+        if lives == 5:
+            #episode ends anytime ALE dies
+            break
+
     print("End of Random Action Sequence {0}".format(episode))
     subgoals = ARP.find_subgoals()
-    #map_subgoals_so_far(subgoals)
     print(len(subgoals))
 
 #One outstanding issue I can envision -- subgoals used to be states, but now they are not.
@@ -95,11 +85,7 @@ for episode in range(1000):
 #plot a heatmap
 obs = env.reset()
 plt.imshow(obs)
-pdb.set_trace()
 for subgoal_location in subgoals:
-    if str(type(subgoal_location))[-5:-2] == 'int':
-        continue
-    else:
-        plt.scatter(subgoal_location[1], subgoal_location[0], c = "yellow", alpha = 0.5, s = 10)
+    plt.scatter(subgoal_location[0], subgoal_location[1], c = "yellow", alpha = 0.5, s = 10)
 plt.show()
 print("Done")

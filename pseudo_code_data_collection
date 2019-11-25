@@ -1,0 +1,14 @@
+Make list of successful transitions:
+data_collection.py
+
+Base it off of main_replicate
+--> store (observation, action, reward, next observation), (subgoal)
+(observation, action, reward, next observation), (subgoal)
+(observation, action, reward, next observation), (subgoal)
+(observation, action, reward, next observation), (subgoal)
+
+Want is list of things preceding successful subgoal acheivement.
+
+Start of episode keep list of all sequences, if reach subgoal, store
+else
+clear list and start over
