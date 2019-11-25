@@ -20,16 +20,16 @@ class ReplayMemory:
         if os.path.exists("replay_buffer/" + self.name + ".hdf5"):
             with h5py.File("replay_buffer/" + self.name + ".hdf5", "r") as f:
                 if self.name == "controller":
-                    self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_t'][-self.buffer_capacity:]])
                     self.memories.append(np.array(f['goal_xy'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(np.array(f['action'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
-                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_tp1'][-self.buffer_capacity:]])
                 elif self.name == "metacontroller":
-                    self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_t'][-self.buffer_capacity:]])
                     self.memories.append(np.array(f['goal_idx'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
-                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_tp1'][-self.buffer_capacity:]])
 
         else:
             with h5py.File("replay_buffer/" + self.name + ".hdf5", "w") as f:
