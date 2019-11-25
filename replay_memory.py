@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 import os
 from utils import *
+import time
 
 
 class ReplayMemory:
@@ -20,16 +21,16 @@ class ReplayMemory:
         if os.path.exists("replay_buffer/" + self.name + ".hdf5"):
             with h5py.File("replay_buffer/" + self.name + ".hdf5", "r") as f:
                 if self.name == "controller":
-                    self.memories.append([arr for arr in f['obs_t'][-self.buffer_capacity:]])
-                    self.memories.append(np.array(f['goal_xy'][-self.buffer_capacity:], dtype = np.uint8).tolist())
-                    self.memories.append(np.array(f['action'][-self.buffer_capacity:], dtype = np.uint8).tolist())
-                    self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
-                    self.memories.append([arr for arr in f['obs_tp1'][-self.buffer_capacity:]])
+                    self.memories.append(f['obs_t'][-self.buffer_capacity:])
+                    self.memories.append(np.array(f['goal_xy'][-self.buffer_capacity:], dtype = np.uint8))
+                    self.memories.append(np.array(f['action'][-self.buffer_capacity:], dtype = np.uint8))
+                    self.memories.append(f['reward'][-self.buffer_capacity:])
+                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:])
                 elif self.name == "metacontroller":
-                    self.memories.append([arr for arr in f['obs_t'][-self.buffer_capacity:]])
-                    self.memories.append(np.array(f['goal_idx'][-self.buffer_capacity:], dtype = np.uint8).tolist())
-                    self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
-                    self.memories.append([arr for arr in f['obs_tp1'][-self.buffer_capacity:]])
+                    self.memories.append(f['obs_t'][-self.buffer_capacity:])
+                    self.memories.append(np.array(f['goal_idx'][-self.buffer_capacity:], dtype = np.uint8))
+                    self.memories.append(f['reward'][-self.buffer_capacity:])
+                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:])
 
         else:
             with h5py.File("replay_buffer/" + self.name + ".hdf5", "w") as f:
@@ -53,13 +54,19 @@ class ReplayMemory:
 
         # store memories to buffer
         if len(self.memories) == 0:
-            self.memories += [[args[0]]]
+            self.memories += [args[0][np.newaxis, :, :, :]]
             for i in range(1, len(args) - 1, 1):
-                self.memories += [[args[i]]]
-            self.memories += [[args[-1]]]
+                self.memories += [args[i]]
+            self.memories += [args[-1][np.newaxis, :, :, :]]
         else:
+            args[0] = args[0][np.newaxis, :, :, :]
+            args[-1] = args[-1][np.newaxis, :, :, :]
             for i in range(len(args)):
-                self.memories[i].append(args[i])
+                if type(args[i]) == np.ndarray:
+                    self.memories[i] = np.concatenate([self.memories[i], args[i]])
+                else:
+                    self.memories[i] = np.append(self.memories[i], args[i])
+                
         self.buffer_counter += 1
 
         # if number of memories exceed buffer_capacity, cycle through buffer of memories
@@ -150,26 +157,26 @@ class ReplayMemory:
         if size >= len(self.memories[0]):
             if self.name == "controller":
 
-                goal_xy = np.array(self.memories[1])
-                goal_mask = [convertToBinaryMask([(xy[0] - 5, xy[1] - 5), (xy[0] + 5, xy[1] + 5)]) for xy in goal_xy]
+                goal_xy = self.memories[1]
+                goal_mask = np.concatenate([convertToBinaryMask([(xy[0] - 5, xy[1] - 5), (xy[0] + 5, xy[1] + 5)])[np.newaxis, :, :, :] for xy in goal_xy], axis = 0)
 
-                obs_t = np.array(self.memories[0])
-                obs_tp1 = np.array(self.memories[-1])
+                obs_t = self.memories[0]
+                obs_tp1 = self.memories[-1]
+                
+                obs_t_goal = np.concatenate([obs_t, goal_mask], axis = 1)
+                obs_tp1_goal = np.concatenate([obs_tp1, goal_mask], axis = 1)
 
-                obs_t_goal = np.array([np.concatenate((obs_t[i], goal_mask[i]), axis = 0) for i in range(len(obs_t))])
-                obs_tp1_goal = np.array([np.concatenate((obs_tp1[i], goal_mask[i]), axis = 0) for i in range(len(obs_tp1))])
-
-                actions = np.array(self.memories[2])
-                rewards = np.array(self.memories[3])
+                actions = self.memories[2]
+                rewards = self.memories[3]
 
                 return [obs_t_goal, actions, rewards, obs_tp1_goal]
 
             elif self.name == "metacontroller":
 
-                obs_t = np.array(self.memories[0])
-                goals = np.array(self.memories[1])
-                rewards = np.array(self.memories[2])
-                obs_tp1 = np.array(self.memories[-1])
+                obs_t = self.memories[0]
+                goals = self.memories[1]
+                rewards = self.memories[2]
+                obs_tp1 = self.memories[3]
 
                 return [obs_t, goals, rewards, obs_tp1]
 
@@ -177,26 +184,21 @@ class ReplayMemory:
         batch_idx = np.random.choice(len(self.memories[0]), size = size, replace = False)
 
         if self.name == "controller":
-            goal_xy_sample = np.array(self.memories[1])[batch_idx]
-            goal_mask_sample = [convertToBinaryMask([(xy[0] - 5, xy[1] - 5), (xy[0] + 5, xy[1] + 5)]) for xy in goal_xy_sample]
+            goal_xy_sample = self.memories[1][batch_idx]
+            goal_mask_sample = np.concatenate([convertToBinaryMask([(xy[0] - 5, xy[1] - 5), (xy[0] + 5, xy[1] + 5)])[np.newaxis, :, :, :] for xy in goal_xy_sample], axis = 0)
 
-            obs_t = np.array(self.memories[0])[batch_idx]
-            obs_tp1 = np.array(self.memories[-1])[batch_idx]
+            obs_t = self.memories[0][batch_idx]
+            obs_tp1 = self.memories[-1][batch_idx]
 
-            obs_t_goal_sample = np.array([np.concatenate((obs_t[i], goal_mask_sample[i]), axis = 0) for i in range(len(obs_t))])
-            obs_tp1_goal_sample = np.array([np.concatenate((obs_tp1[i], goal_mask_sample[i]), axis = 0) for i in range(len(obs_tp1))])
+            obs_t_goal_sample = np.concatenate([obs_t, goal_mask_sample], axis = 1)
+            obs_tp1_goal_sample = np.concatenate([obs_tp1, goal_mask_sample], axis = 1)
 
-            action_sample = np.array(self.memories[2])[batch_idx]
-            reward_sample = np.array(self.memories[3])[batch_idx]
+            action_sample = self.memories[2][batch_idx]
+            reward_sample = self.memories[3][batch_idx]
             
             return [obs_t_goal_sample, action_sample, reward_sample, obs_tp1_goal_sample]
 
         elif self.name == "metacontroller":
 
-            obs_t = np.array(self.memories[0])
-            goal_sample = np.array(self.memories[1])
-            reward_sample = np.array(self.memories[2])
-            obs_tp1 = np.array(self.memories[-1])
-
-            return [obs_t, goal_sample, reward_sample, obs_tp1]
+            return [self.memories[0][batch_idx], self.memories[1][batch_idx], self.memories[2][batch_idx], self.memories[3][batch_idx]]
         

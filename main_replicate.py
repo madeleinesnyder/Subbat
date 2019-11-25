@@ -15,14 +15,17 @@ from utils import *
 import pdb
 import sys
 import os
+import time
+
+start_t = time.time()
 
 '''
 Initialize the environment and h-params (adjust later)
 '''
 random.seed(42)
 learning_rate = 2.5e-4
-num_episodes = 1000
-num_pre_training_episodes = 1000
+num_episodes = 2
+num_pre_training_episodes = 2
 discount = 0.99
 batch_size = 128
 
@@ -36,8 +39,8 @@ tf.global_variables_initializer().run(session=sess)
 '''
 Initialize the replay buffers
 '''
-d1 = ReplayMemory(name = "controller", buffer_capacity = 512, storage_capacity = 4096)
-d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 512, storage_capacity = 4096)
+d1 = ReplayMemory(name = "controller", buffer_capacity = 128, storage_capacity = 4096)
+d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 128, storage_capacity = 4096)
 
 '''
 Initialize subgoals 
@@ -46,7 +49,7 @@ goals_xy = np.load("subgoals.npy")
 goals = {}
 #goals = {0: goals_xy[1], 1: goals_xy[3], 2: goals_xy[9], 3: goals_xy[9]}
 for i in range(len(goals_xy)):
-    goals[i] = goals_xy[i]
+    goals[i] = goals_xy[i][np.newaxis, :]
 goal_dim = len(goals)
 
 '''
@@ -75,7 +78,7 @@ for i in range(num_pre_training_episodes):
     next_lives = 6
     goal_idx = random_goal_idx(goal_dim)
     goal_xy = goals[goal_idx]
-    goal_mask = convertToBinaryMask([(goal_xy[0] - 5, goal_xy[1] - 5),(goal_xy[0] + 5, goal_xy[1] + 5)])
+    goal_mask = convertToBinaryMask([(goal_xy[0][0] - 5, goal_xy[0][1] - 5),(goal_xy[0][0] + 5, goal_xy[0][1] + 5)])
 
     while not (done or dead):
         F = 0
@@ -231,6 +234,10 @@ for i in range(num_episodes):
 
 performanceDf.to_csv("results/performance.csv", index = False)
 env.close()
+
+end_t = time.time()
+
+print("time elaspsed: {0} min", (end_t - start_t) / 60)
 
 
 
