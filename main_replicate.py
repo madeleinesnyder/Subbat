@@ -21,8 +21,8 @@ Initialize the environment and h-params (adjust later)
 '''
 random.seed(42)
 learning_rate = 2.5e-4
-num_episodes = 1000
-num_pre_training_episodes = 1000
+num_episodes = 10
+num_pre_training_episodes = 2
 discount = 0.99
 batch_size = 128
 
@@ -30,19 +30,20 @@ batch_size = 128
 Make the Gym environment and open a tensorflow session
 '''
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
-sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+sess = tf.Session()
 tf.global_variables_initializer().run(session=sess)
 
 '''
 Initialize the replay buffers
 '''
-d1 = ReplayMemory(name = "controller", buffer_capacity = 512, storage_capacity = 4096)
-d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 512, storage_capacity = 4096)
+d1 = ReplayMemory(name = "controller", buffer_capacity = 128, storage_capacity = 4096)
+d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 128, storage_capacity = 4096)
 
 '''
 Initialize subgoals 
 '''
 goals_xy = np.load("subgoals.npy")
+goals_xy = [np.array([int(goal[0]), int(goal[1])]) for goal in goals_xy]
 goals = {}
 #goals = {0: goals_xy[1], 1: goals_xy[3], 2: goals_xy[9], 3: goals_xy[9]}
 for i in range(len(goals_xy)):
@@ -62,9 +63,17 @@ controller_hparams = {"learning_rate": learning_rate, "epsilon": 1, "action_dim"
 controller = Controller(sess, controller_hparams)
 meta_controller = MetaController(sess, meta_controller_hparams)
 
+
+
+
+runtimeDf = pd.DataFrame(columns = ["controller_epsGreedy", "step_env", "d1_store", "d1_sample", "controller_targets", 
+                                    "update_controller"])
+
+
 '''
 Pre-training step. Iterate over subgoals randomly and train controller to achieve subgoals
 '''
+goal_idx = random_goal_idx(goal_dim)
 for i in range(num_pre_training_episodes):
     print("episode {0}".format(i))
     observation = env.reset()
@@ -73,24 +82,36 @@ for i in range(num_pre_training_episodes):
     at_subgoal = False
     lives = 6
     next_lives = 6
-    goal_idx = random_goal_idx(goal_dim)
     goal_xy = goals[goal_idx]
+    print(goal_xy)
     goal_mask = convertToBinaryMask([(goal_xy[0] - 5, goal_xy[1] - 5),(goal_xy[0] + 5, goal_xy[1] + 5)])
+    controller_epsGreedy_time = 0
+    step_env_time = 0
+    d1_store_time = 0
+    d1_sample_time = 0
+    controller_targets_time = 0
+    update_controller_time = 0
 
+    iteration = 0
     while not (done or dead):
         F = 0
         initial_observation = observation
-        iteration = 0
         while not (done or at_subgoal or dead):
             if iteration % 10 == 0:
                 print("iteration {0} of episode {1}; controller epsilon {2}".format(iteration, i, controller.epsilon))
 
             # Get an action from the controller.
+            start = time.perf_counter()
             observation_goal = np.concatenate([observation, goal_mask], axis = 0)
             action = controller.epsGreedy(observation_goal[np.newaxis, :, :, :], env.action_space)
+            end = time.perf_counter()
+            controller_epsGreedy_time += end - start
 
             # STEP THE ENV
+            start = time.perf_counter()
             next_observation, f, done, next_lives = env.step(action)
+            end = time.perf_counter()
+            step_env_time += end - start
 
             # Check if ALE died during this env step.
             dead = next_lives['ale.lives'] < lives
@@ -103,21 +124,37 @@ for i in range(num_pre_training_episodes):
             at_subgoal = achieved_subgoal(env, next_observation, goal_xy)
             if at_subgoal:
                 print("subgoal achieved at iteration {0} of episode {1}".format(iteration, i))
+                print("subgoal was: ", goals[goal_idx])
+                goal_idx = random_goal_idx(goal_dim)
+                print("new subgoal is: ", goals[goal_idx])
                 r = 1
+                #I realized this logic is wrong I think
             else:
                 r = 0
 
             # Store the obs, goal, action, reward, etc. in the controller buffer
+            start = time.perf_counter()
             d1.store([observation, goal_xy, action, r, next_observation])
+            end = time.perf_counter()
+            d1_store_time += end - start
 
             # Sample a batch from the buffer if there's enough in the buffer
+            start = time.perf_counter()
             controller_batch = d1.sample(batch_size)
+            end = time.perf_counter()
+            d1_sample_time += end - start
 
             # Get the controller targets
+            start = time.perf_counter()
             c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
+            end = time.perf_counter()
+            controller_targets_time += end - start
 
             # Update the controller.
+            start = time.perf_counter()
             controller.update(controller_batch[0], controller_batch[1], c_targets)
+            end = time.perf_counter()
+            update_controller_time += end - start
 
             # update lives according to whether or not he died
             lives = next_lives['ale.lives']
@@ -136,100 +173,104 @@ for i in range(num_pre_training_episodes):
             goal_xy = goals[goal_idx]
             at_subgoal = False 
     controller.anneal()
+    runtimeDf.loc[i] = [controller_epsGreedy_time, step_env_time, d1_store_time, d1_sample_time, controller_targets_time,
+                        update_controller_time]
 
 # Initialize array for storing performance
 if not os.path.exists("results"):
     os.makedirs("results")
+    
+runtimeDf.to_csv("results/runtime.csv")
 
-performanceDf = pd.DataFrame(columns = ["episode", "total_intrinsic_reward", "extrinsic_reward"])
+# performanceDf = pd.DataFrame(columns = ["episode", "total_intrinsic_reward", "extrinsic_reward"])
 
-'''
-Main h-DQN algorithm
-'''
-for i in range(num_episodes):
-    print("episode {0}".format(i))
-    observation = env.reset()
-    done = False
-    dead = False
-    at_subgoal = False
-    lives = 6
-    next_lives = 6
-    goal_idx = meta_controller.epsGreedy(goals, observation)
-    goal_xy = goals[goal_idx]
-    goal_mask = convertToBinaryMask([(goal_xy[0] - 5, goal_xy[1] - 5),(goal_xy[0] + 5, goal_xy[1] + 5)])
+# '''
+# Main h-DQN algorithm
+# '''
+# for i in range(num_episodes):
+#     print("episode {0}".format(i))
+#     observation = env.reset()
+#     done = False
+#     dead = False
+#     at_subgoal = False
+#     lives = 6
+#     next_lives = 6
+#     goal_idx = meta_controller.epsGreedy(goals, observation)
+#     goal_xy = goals[goal_idx]
+#     goal_mask = convertToBinaryMask([(goal_xy[0] - 5, goal_xy[1] - 5),(goal_xy[0] + 5, goal_xy[1] + 5)])
 
-    total_r_per_episode = 0
-    total_F_per_episode = 0
+#     total_r_per_episode = 0
+#     total_F_per_episode = 0
 
-    while not (done or dead):
-        F = 0
-        initial_observation = observation
-        iteration = 0
-        while not (done or at_subgoal or dead):
-            if iteration % 10 == 0:
-                print("iteration {0} of episode {1}; controller epsilon {2}".format(iteration, i, controller.epsilon))
-            if iteration % 50 == 0:
-                performanceDf.to_csv("results/performance.csv", index = False)
+#     while not (done or dead):
+#         F = 0
+#         initial_observation = observation
+#         iteration = 0
+#         while not (done or at_subgoal or dead):
+#             if iteration % 10 == 0:
+#                 print("iteration {0} of episode {1}; controller epsilon {2}".format(iteration, i, controller.epsilon))
+#             if iteration % 50 == 0:
+#                 performanceDf.to_csv("results/performance.csv", index = False)
 
-            # Get an action from the controller.
-            observation_goal = np.concatenate([observation, goal_mask], axis = 0)
-            action = controller.epsGreedy(observation_goal[np.newaxis, :, :, :], env.action_space)
+#             # Get an action from the controller.
+#             observation_goal = np.concatenate([observation, goal_mask], axis = 0)
+#             action = controller.epsGreedy(observation_goal[np.newaxis, :, :, :], env.action_space)
 
-            # STEP THE ENV
-            next_observation, f, done, next_lives = env.step(action)
+#             # STEP THE ENV
+#             next_observation, f, done, next_lives = env.step(action)
 
-            # Check if ALE died during this env step.
-            dead = next_lives['ale.lives'] < lives
+#             # Check if ALE died during this env step.
+#             dead = next_lives['ale.lives'] < lives
 
-            at_subgoal = achieved_subgoal(env, next_observation, goal_xy)
-            if at_subgoal:
-                print("subgoal achieved at iteration {0} of episode {1}".format(iteration, i))
-                r = 1
-            else:
-                r = 0
-            total_r_per_episode += r
+#             at_subgoal = achieved_subgoal(env, next_observation, goal_xy)
+#             if at_subgoal:
+#                 print("subgoal achieved at iteration {0} of episode {1}".format(iteration, i))
+#                 r = 1
+#             else:
+#                 r = 0
+#             total_r_per_episode += r
 
-            # Store the obs, goal, action, reward, etc. in the controller buffer
-            d1.store([observation, goal_xy, action, r, next_observation])
-            # Sample a batch from the buffer if there's enough in the buffer
-            controller_batch = d1.sample(batch_size)
-            # Get the controller targets
-            c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
-            # Update the controller.
-            controller.update(controller_batch[0], controller_batch[1], c_targets)
+#             # Store the obs, goal, action, reward, etc. in the controller buffer
+#             d1.store([observation, goal_xy, action, r, next_observation])
+#             # Sample a batch from the buffer if there's enough in the buffer
+#             controller_batch = d1.sample(batch_size)
+#             # Get the controller targets
+#             c_targets = controller_targets(controller_batch[2], controller_batch[3], controller, discount)
+#             # Update the controller.
+#             controller.update(controller_batch[0], controller_batch[1], c_targets)
 
-            meta_controller_batch = d2.sample(batch_size)
-            m_targets = meta_controller_targets(meta_controller_batch[2], meta_controller_batch[3], meta_controller, discount)
-            meta_controller.update(meta_controller_batch[0], meta_controller_batch[1], m_targets)
-            F += f
-            total_F_per_episode += f
-            observation = next_observation
+#             meta_controller_batch = d2.sample(batch_size)
+#             m_targets = meta_controller_targets(meta_controller_batch[2], meta_controller_batch[3], meta_controller, discount)
+#             meta_controller.update(meta_controller_batch[0], meta_controller_batch[1], m_targets)
+#             F += f
+#             total_F_per_episode += f
+#             observation = next_observation
 
-            # update lives according to whether or not he died
-            lives = next_lives['ale.lives']
+#             # update lives according to whether or not he died
+#             lives = next_lives['ale.lives']
 
-            # Update the observation
-            observation = next_observation
-            iteration += 1
+#             # Update the observation
+#             observation = next_observation
+#             iteration += 1
 
-            # stuck
-            if iteration % 500 == 0:
-                dead = True
+#             # stuck
+#             if iteration % 500 == 0:
+#                 dead = True
 
-        d2.store([initial_observation, goal_idx, F, next_observation])
-        if not (done or dead):
-            goal_idx = meta_controller.epsGreedy(goals, observation)
-            goal_xy = goals[goal_idx]
-            at_subgoal = False 
+#         d2.store([initial_observation, goal_idx, F, next_observation])
+#         if not (done or dead):
+#             goal_idx = meta_controller.epsGreedy(goals, observation)
+#             goal_xy = goals[goal_idx]
+#             at_subgoal = False 
 
-    newDf = pd.DataFrame([[i, total_r_per_episode, total_F_per_episode]], 
-        columns = ["episode", "total_intrinsic_reward", "extrinsic_reward"])
-    performanceDf.append(newDf)
+#     newDf = pd.DataFrame([[i, total_r_per_episode, total_F_per_episode]], 
+#         columns = ["episode", "total_intrinsic_reward", "extrinsic_reward"])
+#     performanceDf.append(newDf)
 
-    meta_controller.anneal()
-    controller.anneal()
+#     meta_controller.anneal()
+#     controller.anneal()
 
-performanceDf.to_csv("results/performance.csv", index = False)
+# performanceDf.to_csv("results/performance.csv", index = False)
 env.close()
 
 

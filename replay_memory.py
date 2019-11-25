@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 import os
 from utils import *
+import time
 
 
 class ReplayMemory:
@@ -20,16 +21,16 @@ class ReplayMemory:
         if os.path.exists("replay_buffer/" + self.name + ".hdf5"):
             with h5py.File("replay_buffer/" + self.name + ".hdf5", "r") as f:
                 if self.name == "controller":
-                    self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_t'][-self.buffer_capacity:]])
                     self.memories.append(np.array(f['goal_xy'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(np.array(f['action'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
-                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_tp1'][-self.buffer_capacity:]])
                 elif self.name == "metacontroller":
-                    self.memories.append(f['obs_t'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_t'][-self.buffer_capacity:]])
                     self.memories.append(np.array(f['goal_idx'][-self.buffer_capacity:], dtype = np.uint8).tolist())
                     self.memories.append(f['reward'][-self.buffer_capacity:].tolist())
-                    self.memories.append(f['obs_tp1'][-self.buffer_capacity:].tolist())
+                    self.memories.append([arr for arr in f['obs_tp1'][-self.buffer_capacity:]])
 
         else:
             with h5py.File("replay_buffer/" + self.name + ".hdf5", "w") as f:
@@ -149,22 +150,44 @@ class ReplayMemory:
         # if size > current: return everything
         if size >= len(self.memories[0]):
             if self.name == "controller":
-
+                print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                
+                start = time.perf_counter()
                 goal_xy = np.array(self.memories[1])
                 goal_mask = [convertToBinaryMask([(xy[0] - 5, xy[1] - 5), (xy[0] + 5, xy[1] + 5)]) for xy in goal_xy]
+                end = start = time.perf_counter()
+                print("The time to convert to binary mask is: ", end - start)
 
-                obs_t = np.array(self.memories[0])
+                start = time.perf_counter()
+                obs_t = np.array(self.memories[0])              
                 obs_tp1 = np.array(self.memories[-1])
+                end = time.perf_counter()
+                print("Time to set obs: ", end - start)
+                
 
-                obs_t_goal = np.array([np.concatenate((obs_t[i], goal_mask[i]), axis = 0) for i in range(len(obs_t))])
+                start = time.perf_counter()
+                test = [np.concatenate((obs_t[i], goal_mask[i]), axis = 0) for i in range(len(obs_t))]
+                end = time.perf_counter()
+                print("The time to do list comprehension is: ", end - start)
+                print(type(test[0]))
+                print(type(test[0]))
+                start = time.perf_counter()
+                obs_t_goal = np.array(test)
+                end = time.perf_counter()
+                print("The time to do array conversion is: ", end - start)
                 obs_tp1_goal = np.array([np.concatenate((obs_tp1[i], goal_mask[i]), axis = 0) for i in range(len(obs_tp1))])
+                
 
+                start = time.perf_counter()
                 actions = np.array(self.memories[2])
                 rewards = np.array(self.memories[3])
+                end = time.perf_counter()
+                print("Time to set arrays: ", end - start)
 
                 return [obs_t_goal, actions, rewards, obs_tp1_goal]
 
             elif self.name == "metacontroller":
+                print("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
                 obs_t = np.array(self.memories[0])
                 goals = np.array(self.memories[1])
@@ -177,6 +200,9 @@ class ReplayMemory:
         batch_idx = np.random.choice(len(self.memories[0]), size = size, replace = False)
 
         if self.name == "controller":
+            print("ccccccccccccccccccccccccccccccccccccccc")
+            
+            
             goal_xy_sample = np.array(self.memories[1])[batch_idx]
             goal_mask_sample = [convertToBinaryMask([(xy[0] - 5, xy[1] - 5), (xy[0] + 5, xy[1] + 5)]) for xy in goal_xy_sample]
 
@@ -192,6 +218,7 @@ class ReplayMemory:
             return [obs_t_goal_sample, action_sample, reward_sample, obs_tp1_goal_sample]
 
         elif self.name == "metacontroller":
+            print("ddddddddddddddddddddddddddddddddddddddddd")
 
             obs_t = np.array(self.memories[0])
             goal_sample = np.array(self.memories[1])
