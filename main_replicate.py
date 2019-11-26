@@ -40,6 +40,7 @@ tf.global_variables_initializer().run(session=sess)
 Initialize subgoals 
 '''
 goals_xy = np.load("subgoals.npy")
+goals_xy = np.array([np.array([int(goal[0]), int(goal[1])]) for goal in goals_xy])
 print(goals_xy)
 goals = {}
 #goals = {0: goals_xy[1], 1: goals_xy[3], 2: goals_xy[9], 3: goals_xy[9]}
