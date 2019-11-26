@@ -114,4 +114,12 @@ class ReplayMemory:
 
         # randomly sample
         batch_idx = np.random.choice(len(self.memories[0]), size = size, replace = False)
-        return [self.memories[0][batch_idx], self.memories[1][batch_idx], self.memories[2][batch_idx], self.memories[3][batch_idx]]
+        a = time.perf_counter()
+        el_0 = self.memories[0][batch_idx]
+        el_3 = self.memories[3][batch_idx]
+        b = time.perf_counter()
+        print("time creating return value in sample func: ", b - a)
+        el_1 = self.memories[1][batch_idx]
+        el_2 = self.memories[2][batch_idx]
+        test = [el_0, el_1, el_2, el_3]
+        return test
