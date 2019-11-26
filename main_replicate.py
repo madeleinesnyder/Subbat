@@ -253,5 +253,4 @@ performanceDf.to_csv("results/performance.csv", index = False)
 env.close()
 
 end_t = time.time()
-
 print("time elaspsed: {0} min".format((end_t - start_t) / 60))
