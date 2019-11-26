@@ -54,7 +54,7 @@ class Controller:
     def get_action(self, x):
         # x = [observations, goals]
         #observations_goals = np.concatenate((x[0], x[1]), axis = 0)
-        actions = tf.math.argmax(self.q_t_values, axis = 1)
+        actions = tf.arg_max(self.q_t_values, dimension = 1)
         #return self.sess.run(actions, feed_dict = {self.obs_g_ph: observations_goals})
         return self.sess.run(actions, feed_dict = {self.obs_g_ph: x})
 
