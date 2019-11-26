@@ -24,10 +24,10 @@ Initialize the environment and h-params (adjust later)
 '''
 random.seed(42)
 learning_rate = 2.5e-4
-num_episodes = 2
-num_pre_training_episodes = 2
+num_episodes = 100
+num_pre_training_episodes = 100
 discount = 0.99
-batch_size = 128
+batch_size = 64
 
 '''
 Make the Gym environment and open a tensorflow session
@@ -35,12 +35,6 @@ Make the Gym environment and open a tensorflow session
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
 sess = tf.Session()
 tf.global_variables_initializer().run(session=sess)
-
-'''
-Initialize the replay buffers
-'''
-d1 = ReplayMemory(name = "controller", buffer_capacity = 128, storage_capacity = 4096)
-d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 128, storage_capacity = 4096)
 
 '''
 Initialize subgoals 
@@ -66,9 +60,17 @@ controller = Controller(sess, controller_hparams)
 meta_controller = MetaController(sess, meta_controller_hparams)
 
 '''
+Initialize the replay buffers
+'''
+d1 = ReplayMemory(name = "controller", buffer_capacity = 128, storage_capacity = 4096, obs_shape = controller_input_shape)
+d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 128, storage_capacity = 4096, obs_shape = meta_controller_input_shape)
+
+'''
 Pre-training step. Iterate over subgoals randomly and train controller to achieve subgoals
 '''
+
 for i in range(num_pre_training_episodes):
+    start = time.perf_counter()
     print("episode {0}".format(i))
     observation = env.reset()
     done = False
@@ -110,8 +112,9 @@ for i in range(num_pre_training_episodes):
             else:
                 r = 0
 
+            next_observation_goal = np.concatenate([observation, goal_mask], axis = 0)
             # Store the obs, goal, action, reward, etc. in the controller buffer
-            d1.store([observation, goal_xy, action, r, next_observation])
+            d1.store([observation_goal, action, r, next_observation_goal])
 
             # Sample a batch from the buffer if there's enough in the buffer
             controller_batch = d1.sample(batch_size)
@@ -139,6 +142,8 @@ for i in range(num_pre_training_episodes):
             goal_xy = goals[goal_idx]
             at_subgoal = False 
     controller.anneal()
+    end = time.perf_counter()
+    print("Time of episode: ", end - start)
 
 # Initialize array for storing performance
 if not os.path.exists("results"):
@@ -159,7 +164,7 @@ for i in range(num_episodes):
     next_lives = 6
     goal_idx = meta_controller.epsGreedy(goals, observation)
     goal_xy = goals[goal_idx]
-    goal_mask = convertToBinaryMask([(goal_xy[0] - 5, goal_xy[1] - 5),(goal_xy[0] + 5, goal_xy[1] + 5)])
+    goal_mask = convertToBinaryMask([(goal_xy[0][0] - 5, goal_xy[0][1] - 5),(goal_xy[0][0] + 5, goal_xy[0][1] + 5)])
 
     total_r_per_episode = 0
     total_F_per_episode = 0
@@ -192,8 +197,9 @@ for i in range(num_episodes):
                 r = 0
             total_r_per_episode += r
 
+            next_observation_goal = np.concatenate([observation, goal_mask], axis = 0)
             # Store the obs, goal, action, reward, etc. in the controller buffer
-            d1.store([observation, goal_xy, action, r, next_observation])
+            d1.store([observation_goal, action, r, next_observation_goal])
             # Sample a batch from the buffer if there's enough in the buffer
             controller_batch = d1.sample(batch_size)
             # Get the controller targets
@@ -237,7 +243,7 @@ env.close()
 
 end_t = time.time()
 
-print("time elaspsed: {0} min", (end_t - start_t) / 60)
+print("time elaspsed: {0} min".format((end_t - start_t) / 60))
 
 
 
