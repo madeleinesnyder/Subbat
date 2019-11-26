@@ -33,7 +33,7 @@ batch_size = 64
 Make the Gym environment and open a tensorflow session
 '''
 env = gym.make('MontezumaRevengeNoFrameskip-v4')
-sess = create_tf_session(use_gpu = True)
+sess = create_tf_session(use_gpu = True, which_gpu = 1)
 tf.global_variables_initializer().run(session=sess)
 
 '''
@@ -62,30 +62,31 @@ meta_controller = MetaController(sess, meta_controller_hparams)
 '''
 Initialize the replay buffers
 '''
-d1 = ReplayMemory(name = "controller", buffer_capacity = 128, storage_capacity = 4096, obs_shape = controller_input_shape)
-d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 128, storage_capacity = 4096, obs_shape = meta_controller_input_shape)
+d1 = ReplayMemory(name = "controller", buffer_capacity = 1024, storage_capacity = 4096, obs_shape = controller_input_shape)
+d2 = ReplayMemory(name = "metacontroller", buffer_capacity = 1024, storage_capacity = 4096, obs_shape = meta_controller_input_shape)
 
 '''
 Pre-training step. Iterate over subgoals randomly and train controller to achieve subgoals
 '''
 
 stopwatch = 0
+total_iterations = 0
+goal_idx = random_goal_idx(goal_dim)
 for i in range(num_pre_training_episodes):
     print("episode {0}".format(i))
     observation = env.reset()
     done = False
     dead = False
     at_subgoal = False
+    iteration = 0
     lives = 6
     next_lives = 6
-    goal_idx = random_goal_idx(goal_dim)
     goal_xy = goals[goal_idx]
     goal_mask = convertToBinaryMask([(goal_xy[0][0] - 5, goal_xy[0][1] - 5),(goal_xy[0][0] + 5, goal_xy[0][1] + 5)])
     
     while not (done or dead):
         F = 0
         initial_observation = observation
-        iteration = 0
         while not (done or at_subgoal or dead):
             start = time.perf_counter()
             if iteration % 10 == 0:
@@ -132,6 +133,7 @@ for i in range(num_pre_training_episodes):
             # Update the observation
             observation = next_observation
             iteration += 1
+            total_iterations += 1
 
             # stuck
             if iteration % 500 == 0:
@@ -139,12 +141,15 @@ for i in range(num_pre_training_episodes):
                 
             end = time.perf_counter()
             stopwatch += end - start
-            print(stopwatch)
+            print(stopwatch, " ", total_iterations)
+            print("average iterations per second: ", total_iterations/stopwatch)
 
         d2.store([initial_observation, goal_idx, F, next_observation])
-        if not (done or dead):
+        if not (done or dead) and at_subgoal:
+            print("subgoal was: ", goals[goal_idx])
             goal_idx = random_goal_idx(goal_dim)
             goal_xy = goals[goal_idx]
+            print("new subgoal is: ", goal_xy)
             at_subgoal = False 
     controller.anneal()
     print("Time of episode: ", end - start)
