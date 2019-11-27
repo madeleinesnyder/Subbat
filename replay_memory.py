@@ -53,7 +53,7 @@ class ReplayMemory:
         #         and [observation, goal_idx, external reward, next_observation] for metacontroller
 
         if self.buffer_counter == self.buffer_capacity:
-            self.write_to_file()
+#             self.write_to_file()
             self.buffer_counter = 0
 
         self.memories[0][self.buffer_counter] = args[0][np.newaxis, :, :, :]
@@ -114,11 +114,11 @@ class ReplayMemory:
 
         # randomly sample
         batch_idx = np.random.choice(len(self.memories[0]), size = size, replace = False)
-        a = time.perf_counter()
+        a = time.perf_counter()     
         el_0 = self.memories[0][batch_idx]
         el_3 = self.memories[3][batch_idx]
         b = time.perf_counter()
-        print("time creating return value in sample func: ", b - a)
+#         print("time creating return value in sample func: ", b - a)
         el_1 = self.memories[1][batch_idx]
         el_2 = self.memories[2][batch_idx]
         test = [el_0, el_1, el_2, el_3]
