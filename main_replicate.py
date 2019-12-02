@@ -112,7 +112,7 @@ for i in range(num_pre_training_episodes):
             else:
                 r = 0
 
-            next_observation_goal = np.concatenate([observation, goal_mask], axis = 0)
+            next_observation_goal = np.concatenate([next_observation, goal_mask], axis = 0)
             # Store the obs, goal, action, reward, etc. in the controller buffer
             d1.store([observation_goal, action, r, next_observation_goal])
 
