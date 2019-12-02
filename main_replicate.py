@@ -132,6 +132,7 @@ for i in range(num_pre_training_episodes):
 
             # Update the observation
             observation = next_observation
+            F += f
             iteration += 1
             total_iterations += 1
 
