@@ -2,11 +2,6 @@ import numpy as np
 import sys
 from Action_Replay_Buffer import *
 
-def intrinsic_reward(obs, goal, ARP):
-    if ARP.at_subgoal == True:
-        return 1
-    return 0
-
 def achieved_subgoal(env, observation, goal_xy):
     coords = get_ALE_coord(env, observation)
     k = 10 # Because Calvin says so.
